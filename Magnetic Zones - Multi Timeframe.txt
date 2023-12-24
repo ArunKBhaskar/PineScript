@@ -1,0 +1,690 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+//@version=5
+indicator(title='Magnetic Zones - Multi Timeframe', shorttitle='Magnetic Zones', overlay=true)
+
+//_____________________________ Menu Magnetic Zones 1 Start
+
+g_mz_1 = 'Magnetic Zones 1'
+string i_mz_1_tf = input.timeframe(defval='D', title='Timeframe', inline='1', group=g_mz_1)
+int i_mz_1_showlast = input.int(defval=1, minval=0, title='Show Last', inline='1', group=g_mz_1) + 1
+
+bool i_mz_1_pdhl_show = input.bool(defval=true, title='PDHL', inline='sr_1', group=g_mz_1)
+bool i_mz_1_p_show = input.bool(defval=true, title='P', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_1_show = input.bool(defval=true, title='SR1', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_2_show = input.bool(defval=true, title='SR2', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_3_show = input.bool(defval=false, title='SR3', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_4_show = input.bool(defval=false, title='SR4', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_5_show = input.bool(defval=false, title='SR5', inline='sr_1', group=g_mz_1)
+bool i_mz_1_sr_6_show = input.bool(defval=false, title='SR6', inline='sr_1', group=g_mz_1)
+
+color i_mz_1_r_t_ln_color = input.color(defval=#00BCF2, title='', inline='4', group=g_mz_1)
+color i_mz_1_s_ln_color = input.color(defval=#009E49, title='', inline='4', group=g_mz_1)
+color i_mz_1_sub_color = input.color(defval=#9598A1, title='', inline='4', group=g_mz_1)
+color i_mz_1_r_ln_color = input.color(defval=#E81123, title='', inline='4', group=g_mz_1)
+color i_mz_1_s_t_ln_color = input.color(defval=#FF8C00, title='', inline='4', group=g_mz_1)
+
+string i_mz_1_ln_style = input.string(defval=line.style_solid, title='', options=[line.style_solid, line.style_dashed, line.style_dotted], inline='4', group=g_mz_1)
+int i_mz_1_ln_width = input.int(defval=1, title='', inline='4', group=g_mz_1)
+
+//_____________________________ Menu Magnetic Zones 1 End
+
+//_____________________________ Menu Magnetic Zones 2 Start
+
+g_mz_2 = 'Magnetic Zones 2'
+string i_mz_2_tf = input.timeframe(defval='W', title='Timeframe', inline='1', group=g_mz_2)
+int i_mz_2_showlast = input.int(defval=0, minval=0, title='Show Last', inline='1', group=g_mz_2) + 1
+
+bool i_mz_2_pdhl_show = input.bool(defval=true, title='PDHL', inline='sr_1', group=g_mz_2)
+bool i_mz_2_p_show = input.bool(defval=true, title='P', inline='sr_1', group=g_mz_2)
+bool i_mz_2_sr_1_show = input.bool(defval=true, title='SR1', inline='sr_1', group=g_mz_2)
+bool i_mz_2_sr_2_show = input.bool(defval=true, title='SR2', inline='sr_1', group=g_mz_2)
+
+color i_mz_2_s_ln_color = input.color(defval=#009E49, title='', inline='4', group=g_mz_2)
+color i_mz_2_sub_color = input.color(defval=#9598A1, title='', inline='4', group=g_mz_2)
+color i_mz_2_r_ln_color = input.color(defval=#E81123, title='', inline='4', group=g_mz_2)
+
+string i_mz_2_ln_style = input.string(defval=line.style_dashed, title='', options=[line.style_solid, line.style_dashed, line.style_dotted], inline='4', group=g_mz_2)
+int i_mz_2_ln_width = input.int(defval=1, title='', inline='4', group=g_mz_2)
+
+//_____________________________ Menu Magnetic Zones 2 End
+
+//_____________________________ Menu Magnetic Zones 3 Start
+
+g_mz_3 = 'Magnetic Zones 3'
+string i_mz_3_tf = input.timeframe(defval='M', title='Timeframe', inline='1', group=g_mz_3)
+int i_mz_3_showlast = input.int(defval=0, minval=0, title='Show Last', inline='1', group=g_mz_3) + 1
+
+bool i_mz_3_pdhl_show = input.bool(defval=true, title='PDHL', inline='sr_1', group=g_mz_3)
+bool i_mz_3_p_show = input.bool(defval=true, title='P', inline='sr_1', group=g_mz_3)
+bool i_mz_3_sr_1_show = input.bool(defval=true, title='SR1', inline='sr_1', group=g_mz_3)
+bool i_mz_3_sr_2_show = input.bool(defval=true, title='SR2', inline='sr_1', group=g_mz_3)
+
+color i_mz_3_s_ln_color = input.color(defval=#009E49, title='', inline='4', group=g_mz_3)
+color i_mz_3_sub_color = input.color(defval=#9598A1, title='', inline='4', group=g_mz_3)
+color i_mz_3_r_ln_color = input.color(defval=#E81123, title='', inline='4', group=g_mz_3)
+
+string i_mz_3_ln_style = input.string(defval=line.style_dotted, title='', options=[line.style_solid, line.style_dashed, line.style_dotted], inline='4', group=g_mz_3)
+int i_mz_3_ln_width = input.int(defval=1, title='', inline='4', group=g_mz_3)
+
+//_____________________________ Menu Magnetic Zones 3 End
+
+//_____________________________ Menu General Inputs Start
+
+g_gi = 'Magnetic Zones General Inputs'
+int i_mz_bx_transp = input.int(defval=70, minval=0, maxval=100, title='Box Transp', inline='1', group=g_gi)
+string i_mz_bx_style = input.string(defval=line.style_solid, title='', options=[line.style_solid, line.style_dashed, line.style_dotted], inline='1', group=g_gi)
+string i_mz_bx_txt_size = input.string(defval=size.auto, title='Text?????', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], inline='2', group=g_gi)
+string i_mz_bx_txt_align = input.string(defval=text.align_right, title='', options=[text.align_left, text.align_center, text.align_right], inline='2', group=g_gi)
+
+//_____________________________ Menu General Inputs End
+
+//__________________________ Menu Moving Average Start
+
+g_ma = 'Moving Average'
+bool i_ma_1_show = input.bool(defval=false, title='', inline='ma_1_1', group=g_ma)
+int i_ma_1_length = input.int(defval=20, title='', inline='ma_1_1', group=g_ma)
+string i_ma_1_type = input.string(defval="EMA", title='', options=["EMA", "SMA"], inline='ma_1_1', group=g_ma)
+color i_ma_1_color = input.color(defval=#22AB94, title='', inline='ma_1_1', group=g_ma)
+float i_ma_1_source = input.source(defval=close, title='?????', inline='ma_1_2', group=g_ma)
+string i_ma_1_timeframe = input.timeframe(defval='', title='', inline='ma_1_2', group=g_ma)
+
+bool i_ma_2_show = input.bool(defval=false, title='', inline='ma_2_1', group=g_ma)
+int i_ma_2_length = input.int(defval=200, title='', inline='ma_2_1', group=g_ma)
+string i_ma_2_type = input.string(defval="EMA", title='', options=["EMA", "SMA"], inline='ma_2_1', group=g_ma)
+color i_ma_2_color = input.color(defval=#F7525F, title='', inline='ma_2_1', group=g_ma)
+float i_ma_2_source = input.source(defval=close, title='?????', inline='ma_2_2', group=g_ma)
+string i_ma_2_timeframe = input.timeframe(defval='', title='', inline='ma_2_2', group=g_ma)
+
+int i_ma_offset = input.int(defval=0, minval=0, title='Offset', inline='6', group=g_ma)
+
+bool i_ma_lb_length_show = input.bool(defval=false, title='Label: Length', inline='7', group=g_ma)
+bool i_ma_lb_type_show = input.bool(defval=false, title='Type', inline='7', group=g_ma)
+bool i_ma_lb_htf_show = input.bool(defval=false, title='Timeframe', inline='7', group=g_ma)
+
+//__________________________ Menu Moving Average End
+
+//_____________________________ Menu VWAP Start
+
+g_vwap = 'VWAP (Volume Weighted Average Price)'
+bool i_vwap_show = input.bool(defval=false, title='', inline='1', group=g_vwap)
+var i_vwap_timeframe = input.string(defval = "Day", title="", options=["Day", "Week", "Month"], inline='1', group=g_vwap)
+float i_vwap_source = input.source(title = "", defval = hlc3, inline='1', group=g_vwap)
+color i_vwap_color = input.color(defval=#2962FF, title='', inline='1', group=g_vwap)
+
+//_____________________________ Menu VWAP End
+
+//_____________________________ Menu Supertrend Start
+
+g_st = 'Supertrend'
+bool i_st_show = input.bool(defval=false, title='Show', inline='', group=g_st)
+int i_st_atr_period = input.int(defval=7, title='ATR Length', minval=1, inline='', group=g_st)
+float i_st_factor = input.float(defval=2, title='Factor', minval=0.01, step=0.01, inline='', group=g_st)
+color i_st_up_color = input.color(defval=#22AB94, title='Color???????????', inline='st_c', group=g_st)
+color i_st_dn_color = input.color(defval=#F7525F, title='', inline='st_c', group=g_st)
+
+//_____________________________ Menu Supertrend End
+
+//_____________________________ Menu Screener Formula Start
+
+txt_scr =
+ 'Formula for price Near R2:\n\n'+
+ 'Line 1.\n'+
+ '5 minute Close <= 1 day ago High + ( ( 1 day ago High - 1 day ago Low ) / 2 )\n\n'+
+ 'Line 2.\n'+
+ '5 minute Close >= 1 day ago High + ( ( 1 day ago High - 1 day ago Low ) / 3 )\n\n\n'+
+
+ 'Formula for price Near S2:\n\n'+
+ 'Line 1.\n'+
+ '5 minute Close >= 1 day ago Low - ( ( 1 day ago High - 1 day ago Low ) / 2 )\n\n'+ 
+ 'Line 2.\n'+
+ '5 minute Close <= 1 day ago Low - ( ( 1 day ago High - 1 day ago Low ) / 3 )'
+
+string i_adr_screener_formula = input.text_area(defval=txt_scr, title='', group='Magnetic Zones Screener Formula')
+
+//_____________________________ Menu Screener Formula End
+
+//_____________________________ Menu GitHub Start
+
+txt_git =
+ 'Source Code is available at GitHub:\n'+
+ 'Link: https://github.com/ArunKBhaskar/PineScript'
+
+string github = input.text_area(defval=txt_git, title='', group='Source Code')
+
+//_____________________________ Menu GitHub End
+
+//_____________________________ Get Data Start
+
+get_time(timeframe) =>
+    [_time, _time_close] = request.security(symbol=syminfo.tickerid, timeframe=timeframe, expression=[time, time_close], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+    [_time, _time_close]
+
+[mz_1_time, mz_1_time_close] = get_time(i_mz_1_tf)
+[mz_2_time, mz_2_time_close] = get_time(i_mz_2_tf)
+[mz_3_time, mz_3_time_close] = get_time(i_mz_3_tf)
+
+//_____________________________ Get Data End
+
+//_____________________________ MZ Calculations Start
+
+// MZ Function
+magnetic_zones(float multiplier) =>
+    prev_hl_diff = high[1] - low[1]
+    r = hl2[1] + multiplier * prev_hl_diff
+    s = hl2[1] - multiplier * prev_hl_diff
+    [r, s]
+
+buffer_zone(float level, float level_top, float level_bot) =>
+    top = level + ((level_top - level_bot) / 8)
+    bottom = level - ((level_top - level_bot) / 8)
+    [top, bottom]
+
+// Calculate Magnetic Zones
+[r_1, s_1] = magnetic_zones(0.236)
+[r_2, s_2] = magnetic_zones(0.786)
+[r_3, s_3] = magnetic_zones(1.618)
+[r_4, s_4] = magnetic_zones(2.618)
+[r_5, s_5] = magnetic_zones(4.236)
+[r_6, s_6] = magnetic_zones(6.618)
+
+//_____________________________ Get Data Function
+
+data(timeframe, price) =>
+  request.security(symbol=syminfo.tickerid, timeframe=timeframe, expression=price, lookahead=barmerge.lookahead_on)
+
+/// MZ 1
+// PDHL
+mz_1_ph = data(i_mz_1_tf, high[1])
+mz_1_pl = data(i_mz_1_tf, low[1])
+
+// Pivot
+mz_1_p = data(i_mz_1_tf, hl2[1])
+
+// MZ 1 SR
+mz_1_r_1 = data(i_mz_1_tf, r_1)
+mz_1_r_2 = data(i_mz_1_tf, r_2)
+mz_1_r_3 = data(i_mz_1_tf, r_3)
+mz_1_r_4 = data(i_mz_1_tf, r_4)
+mz_1_r_5 = data(i_mz_1_tf, r_5)
+mz_1_r_6 = data(i_mz_1_tf, r_6)
+
+mz_1_s_1 = data(i_mz_1_tf, s_1)
+mz_1_s_2 = data(i_mz_1_tf, s_2)
+mz_1_s_3 = data(i_mz_1_tf, s_3)
+mz_1_s_4 = data(i_mz_1_tf, s_4)
+mz_1_s_5 = data(i_mz_1_tf, s_5)
+mz_1_s_6 = data(i_mz_1_tf, s_6)
+
+// Buffer
+[mz_1_r_1_top, mz_1_r_1_bot] = buffer_zone(mz_1_r_1, mz_1_r_1, mz_1_s_1)
+[mz_1_s_1_top, mz_1_s_1_bot] = buffer_zone(mz_1_s_1, mz_1_r_1, mz_1_s_1)
+[mz_1_r_2_top, mz_1_r_2_bot] = buffer_zone(mz_1_r_2, mz_1_r_2, mz_1_r_1)
+[mz_1_s_2_top, mz_1_s_2_bot] = buffer_zone(mz_1_s_2, mz_1_s_1, mz_1_s_2)
+//[mz_1_r_3_top, mz_1_r_3_bot] = buffer_zone(mz_1_r_3, mz_1_r_3, mz_1_r_2)
+//[mz_1_s_3_top, mz_1_s_3_bot] = buffer_zone(mz_1_s_3, mz_1_s_2, mz_1_s_3)
+[mz_1_r_4_top, mz_1_r_4_bot] = buffer_zone(mz_1_r_4, mz_1_r_4, mz_1_r_3)
+[mz_1_s_4_top, mz_1_s_4_bot] = buffer_zone(mz_1_s_4, mz_1_s_3, mz_1_s_4)
+//[mz_1_r_5_top, mz_1_r_5_bot] = buffer_zone(mz_1_r_5, mz_1_r_5, mz_1_r_4)
+//[mz_1_s_5_top, mz_1_s_5_bot] = buffer_zone(mz_1_s_5, mz_1_s_4, mz_1_s_5)
+[mz_1_r_6_top, mz_1_r_6_bot] = buffer_zone(mz_1_r_6, mz_1_r_6, mz_1_r_5)
+[mz_1_s_6_top, mz_1_s_6_bot] = buffer_zone(mz_1_s_6, mz_1_s_5, mz_1_s_6)
+
+/// MZ 2
+// PDHL
+mz_2_ph = data(i_mz_2_tf, high[1])
+mz_2_pl = data(i_mz_2_tf, low[1])
+
+// Pivot
+mz_2_p = data(i_mz_2_tf, hl2[1])
+
+// MZ 2 SR
+mz_2_r_1 = data(i_mz_2_tf, r_1)
+mz_2_r_2 = data(i_mz_2_tf, r_2)
+
+mz_2_s_1 = data(i_mz_2_tf, s_1)
+mz_2_s_2 = data(i_mz_2_tf, s_2)
+
+// Buffer
+[mz_2_r_1_top, mz_2_r_1_bot] = buffer_zone(mz_2_r_1, mz_2_r_1, mz_2_s_1)
+[mz_2_s_1_top, mz_2_s_1_bot] = buffer_zone(mz_2_s_1, mz_2_r_1, mz_2_s_1)
+[mz_2_r_2_top, mz_2_r_2_bot] = buffer_zone(mz_2_r_2, mz_2_r_2, mz_2_r_1)
+[mz_2_s_2_top, mz_2_s_2_bot] = buffer_zone(mz_2_s_2, mz_2_s_1, mz_2_s_2)
+
+/// MZ 3
+// PDHL
+mz_3_ph = data(i_mz_3_tf, high[1])
+mz_3_pl = data(i_mz_3_tf, low[1])
+
+// Pivot
+mz_3_p = data(i_mz_3_tf, hl2[1])
+
+// MZ 3 SR
+mz_3_r_1 = data(i_mz_3_tf, r_1)
+mz_3_r_2 = data(i_mz_3_tf, r_2)
+
+mz_3_s_1 = data(i_mz_3_tf, s_1)
+mz_3_s_2 = data(i_mz_3_tf, s_2)
+
+// Buffer
+[mz_3_r_1_top, mz_3_r_1_bot] = buffer_zone(mz_3_r_1, mz_3_r_1, mz_3_s_1)
+[mz_3_s_1_top, mz_3_s_1_bot] = buffer_zone(mz_3_s_1, mz_3_r_1, mz_3_s_1)
+[mz_3_r_2_top, mz_3_r_2_bot] = buffer_zone(mz_3_r_2, mz_3_r_2, mz_3_r_1)
+[mz_3_s_2_top, mz_3_s_2_bot] = buffer_zone(mz_3_s_2, mz_3_s_1, mz_3_s_2)
+
+//_____________________________ MZ Calculations End
+
+//_____________________________ Draw Functions Start
+
+draw_line(left_time, right_time, float price, color _color, string _style, int _width) =>
+    _line = line.new(x1=left_time, y1=price, x2=right_time, y2=price, xloc=xloc.bar_time, color=_color, style=_style, width=_width)
+
+draw_box(left_time, right_time, float top_price, float bottom_price, color _color, int _border_width, string _border_style, string _text, string _text_size, color _text_color, string _text_halign) =>
+    _box = box.new(left=left_time, top=top_price, right=right_time, bottom=bottom_price, border_color=_color, border_width=_border_width, border_style=_border_style, xloc=xloc.bar_time, bgcolor=_color, text=_text, text_size=_text_size, text_color=_text_color, text_halign=_text_halign, text_valign=text.align_center)//, text_wrap=text.wrap_auto)
+
+//_____________________________ Draw Functions End
+
+//_____________________________ Draw MZ 1 Levels Start
+
+var mz_1_ph_ln_arr = array.new_line(), var mz_1_pl_ln_arr = array.new_line()
+var mz_1_p_ln_arr = array.new_line()
+var mz_1_r_1_ln_arr = array.new_line(), var mz_1_s_1_ln_arr = array.new_line()
+var mz_1_r_2_ln_arr = array.new_line(), var mz_1_s_2_ln_arr = array.new_line()
+var mz_1_r_3_ln_arr = array.new_line(), var mz_1_s_3_ln_arr = array.new_line()
+var mz_1_r_4_ln_arr = array.new_line(), var mz_1_s_4_ln_arr = array.new_line()
+var mz_1_r_5_ln_arr = array.new_line(), var mz_1_s_5_ln_arr = array.new_line()
+var mz_1_r_6_ln_arr = array.new_line(), var mz_1_s_6_ln_arr = array.new_line()
+
+var mz_1_r_1_s_1_bx_arr = array.new_box()
+var mz_1_r_1_bx_arr = array.new_box(), var mz_1_s_1_bx_arr = array.new_box()
+var mz_1_r_2_bx_arr = array.new_box(), var mz_1_s_2_bx_arr = array.new_box()
+//var mz_1_r_3_bx_arr = array.new_box(), var mz_1_s_3_bx_arr = array.new_box()
+var mz_1_r_4_bx_arr = array.new_box(), var mz_1_s_4_bx_arr = array.new_box()
+//var mz_1_r_5_bx_arr = array.new_box(), var mz_1_s_5_bx_arr = array.new_box()
+var mz_1_r_6_bx_arr = array.new_box(), var mz_1_s_6_bx_arr = array.new_box()
+
+if(timeframe.change(i_mz_1_tf))
+    if i_mz_1_pdhl_show
+        mz_1_ph_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_ph, i_mz_1_sub_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_ph_ln_arr, mz_1_ph_ln)
+        mz_1_pl_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_pl, i_mz_1_sub_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_pl_ln_arr, mz_1_pl_ln)
+
+    if i_mz_1_p_show
+        mz_1_p_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_p, i_mz_1_sub_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_p_ln_arr, mz_1_p_ln)
+
+    if i_mz_1_sr_1_show
+        mz_1_r_1_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_1, i_mz_1_sub_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_1_ln_arr, mz_1_r_1_ln)
+        mz_1_s_1_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_1, i_mz_1_sub_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_1_ln_arr, mz_1_s_1_ln)
+
+        mz_1_r_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_1_top, mz_1_r_1_bot, color.new(i_mz_1_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_1)) + ' : ' + str.tostring(i_mz_1_tf) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_sub_color, i_mz_bx_txt_align)
+        array.push(mz_1_r_1_bx_arr, mz_1_r_bx)
+        mz_1_s_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_1_top, mz_1_s_1_bot, color.new(i_mz_1_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_1)) + ' : ' + str.tostring(i_mz_1_tf), i_mz_bx_txt_size, i_mz_1_sub_color, i_mz_bx_txt_align)
+        array.push(mz_1_s_1_bx_arr, mz_1_s_bx)
+
+        mz_1_r_1_s_1_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_1_top, mz_1_s_1_bot, color.new(i_mz_1_sub_color, i_mz_bx_transp), 1, i_mz_bx_style, '', i_mz_bx_txt_size, i_mz_1_sub_color, i_mz_bx_txt_align)
+        array.push(mz_1_r_1_s_1_bx_arr, mz_1_r_1_s_1_bx)
+
+    if i_mz_1_sr_2_show
+        mz_1_r_2_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_2, i_mz_1_s_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_2_ln_arr, mz_1_r_2_ln)
+        mz_1_s_2_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_2, i_mz_1_r_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_2_ln_arr, mz_1_s_2_ln)
+
+        mz_1_r_2_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_2_top, mz_1_r_2_bot, color.new(i_mz_1_s_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_2)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_s_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_r_2_bx_arr, mz_1_r_2_bx)
+        mz_1_s_2_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_2_top, mz_1_s_2_bot, color.new(i_mz_1_r_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_2)), i_mz_bx_txt_size, i_mz_1_r_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_s_2_bx_arr, mz_1_s_2_bx)
+
+    if i_mz_1_sr_3_show
+        mz_1_r_3_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_3, i_mz_1_r_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_3_ln_arr, mz_1_r_3_ln)
+        mz_1_s_3_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_3, i_mz_1_s_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_3_ln_arr, mz_1_s_3_ln)
+//    if i_mz_1_sr_3_show 
+//        mz_1_r_3_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_3_top, mz_1_r_3_bot, color.new(i_mz_1_r_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_3)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_r_ln_color, i_mz_bx_txt_align)
+//        array.push(mz_1_r_3_bx_arr, mz_1_r_3_bx)
+//       mz_1_s_3_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_3_top, mz_1_s_3_bot, color.new(i_mz_1_s_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_3)), i_mz_bx_txt_size, i_mz_1_s_ln_color, i_mz_bx_txt_align)
+//        array.push(mz_1_s_3_bx_arr, mz_1_s_3_bx)
+
+    if i_mz_1_sr_4_show
+        mz_1_r_4_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_4, i_mz_1_r_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_4_ln_arr, mz_1_r_4_ln)
+        mz_1_s_4_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_4, i_mz_1_s_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_4_ln_arr, mz_1_s_4_ln)
+
+        mz_1_r_4_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_4_top, mz_1_r_4_bot, color.new(i_mz_1_r_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_4)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_r_t_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_r_4_bx_arr, mz_1_r_4_bx)
+        mz_1_s_4_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_4_top, mz_1_s_4_bot, color.new(i_mz_1_s_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_4)), i_mz_bx_txt_size, i_mz_1_s_t_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_s_4_bx_arr, mz_1_s_4_bx)
+
+    if i_mz_1_sr_5_show
+        mz_1_r_5_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_5, i_mz_1_r_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_5_ln_arr, mz_1_r_5_ln)
+        mz_1_s_5_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_5, i_mz_1_s_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_5_ln_arr, mz_1_s_5_ln)
+//    if i_mz_1_sr_5_show
+//        mz_1_r_5_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_5_top, mz_1_r_5_bot, color.new(i_mz_1_r_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_5)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_r_t_ln_color, i_mz_bx_txt_align)
+//        array.push(mz_1_r_5_bx_arr, mz_1_r_5_bx)
+//        mz_1_s_5_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_5_top, mz_1_s_5_bot, color.new(i_mz_1_s_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_5)), i_mz_bx_txt_size, i_mz_1_s_t_ln_color, i_mz_bx_txt_align)
+//        array.push(mz_1_s_5_bx_arr, mz_1_s_5_bx)
+
+    if i_mz_1_sr_6_show
+        mz_1_r_6_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_r_6, i_mz_1_r_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_r_6_ln_arr, mz_1_r_6_ln)
+        mz_1_s_6_ln = draw_line(mz_1_time, mz_1_time_close, mz_1_s_6, i_mz_1_s_t_ln_color, i_mz_1_ln_style, i_mz_1_ln_width)
+        array.push(mz_1_s_6_ln_arr, mz_1_s_6_ln)
+
+        mz_1_r_6_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_r_6_top, mz_1_r_6_bot, color.new(i_mz_1_r_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_1_r_6)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_1_r_t_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_r_6_bx_arr, mz_1_r_6_bx)
+        mz_1_s_6_bx = draw_box(mz_1_time, mz_1_time_close, mz_1_s_6_top, mz_1_s_6_bot, color.new(i_mz_1_s_t_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_1_s_6)), i_mz_bx_txt_size, i_mz_1_s_t_ln_color, i_mz_bx_txt_align)
+        array.push(mz_1_s_6_bx_arr, mz_1_s_6_bx)
+
+// Function to delete past lines & boxes
+show_last_boxes(arr, int showlast) =>
+    if array.size(arr) >= showlast
+        box = array.get(arr, 0)
+        box.delete(box)
+        array.remove(arr, 0)
+
+show_last_lines(arr, int showlast) =>
+    if array.size(arr) >= showlast
+        line = array.get(arr, 0)
+        line.delete(line)
+        array.remove(arr, 0)
+
+show_last_lines(mz_1_ph_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_pl_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_p_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_1_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_1_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_2_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_2_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_3_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_3_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_4_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_4_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_5_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_5_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_r_6_ln_arr, i_mz_1_showlast)
+show_last_lines(mz_1_s_6_ln_arr, i_mz_1_showlast)
+
+show_last_boxes(mz_1_r_1_s_1_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_r_1_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_s_1_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_r_2_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_s_2_bx_arr, i_mz_1_showlast)
+//show_last_boxes(mz_1_r_3_bx_arr, i_mz_1_showlast)
+//show_last_boxes(mz_1_s_3_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_r_4_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_s_4_bx_arr, i_mz_1_showlast)
+//show_last_boxes(mz_1_r_5_bx_arr, i_mz_1_showlast)
+//show_last_boxes(mz_1_s_5_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_r_6_bx_arr, i_mz_1_showlast)
+show_last_boxes(mz_1_s_6_bx_arr, i_mz_1_showlast)
+
+//_____________________________ Draw MZ 1 Levels End
+
+//_____________________________ Draw MZ 2 Levels Start
+
+var mz_2_ph_ln_arr = array.new_line(), var mz_2_pl_ln_arr = array.new_line()
+var mz_2_p_ln_arr = array.new_line()
+var mz_2_r_1_ln_arr = array.new_line(), var mz_2_s_1_ln_arr = array.new_line()
+var mz_2_r_2_ln_arr = array.new_line(), var mz_2_s_2_ln_arr = array.new_line()
+
+var mz_2_r_1_s_1_bx_arr = array.new_box()
+var mz_2_r_1_bx_arr = array.new_box(), var mz_2_s_1_bx_arr = array.new_box()
+var mz_2_r_2_bx_arr = array.new_box(), var mz_2_s_2_bx_arr = array.new_box()
+
+if(timeframe.change(i_mz_2_tf))
+    if i_mz_2_pdhl_show
+        mz_2_ph_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_ph, i_mz_2_sub_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_ph_ln_arr, mz_2_ph_ln)
+        mz_2_pl_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_pl, i_mz_2_sub_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_pl_ln_arr, mz_2_pl_ln)
+
+    if i_mz_2_p_show
+        mz_2_p_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_p, i_mz_2_sub_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_p_ln_arr, mz_2_p_ln)
+
+    if i_mz_2_sr_1_show
+        mz_2_r_1_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_r_1, i_mz_2_sub_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_r_1_ln_arr, mz_2_r_1_ln)
+        mz_2_s_1_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_s_1, i_mz_2_sub_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_s_1_ln_arr, mz_2_s_1_ln)
+
+        mz_2_r_bx = draw_box(mz_2_time, mz_2_time_close, mz_2_r_1_top, mz_2_r_1_bot, color.new(i_mz_2_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_2_r_1)) + ' : ' + str.tostring(i_mz_2_tf) + '\n' + '\n', i_mz_bx_txt_size, i_mz_2_sub_color, i_mz_bx_txt_align)
+        array.push(mz_2_r_1_bx_arr, mz_2_r_bx)
+        mz_2_s_bx = draw_box(mz_2_time, mz_2_time_close, mz_2_s_1_top, mz_2_s_1_bot, color.new(i_mz_2_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_2_s_1)) + ' : ' + str.tostring(i_mz_2_tf), i_mz_bx_txt_size, i_mz_2_sub_color, i_mz_bx_txt_align)
+        array.push(mz_2_s_1_bx_arr, mz_2_s_bx)
+
+        mz_2_r_1_s_1_bx = draw_box(mz_2_time, mz_2_time_close, mz_2_r_1_top, mz_2_s_1_bot, color.new(i_mz_2_sub_color, i_mz_bx_transp), 1, i_mz_bx_style, '', i_mz_bx_txt_size, i_mz_2_sub_color, i_mz_bx_txt_align)
+        array.push(mz_2_r_1_s_1_bx_arr, mz_2_r_1_s_1_bx)
+
+    if i_mz_2_sr_2_show
+        mz_2_r_2_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_r_2, i_mz_2_s_ln_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_r_2_ln_arr, mz_2_r_2_ln)
+        mz_2_s_2_ln = draw_line(mz_2_time, mz_2_time_close, mz_2_s_2, i_mz_2_r_ln_color, i_mz_2_ln_style, i_mz_2_ln_width)
+        array.push(mz_2_s_2_ln_arr, mz_2_s_2_ln)
+
+        mz_2_r_2_bx = draw_box(mz_2_time, mz_2_time_close, mz_2_r_2_top, mz_2_r_2_bot, color.new(i_mz_2_s_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_2_r_2)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_2_s_ln_color, i_mz_bx_txt_align)
+        array.push(mz_2_r_2_bx_arr, mz_2_r_2_bx)
+        mz_2_s_2_bx = draw_box(mz_2_time, mz_2_time_close, mz_2_s_2_top, mz_2_s_2_bot, color.new(i_mz_2_r_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_2_s_2)), i_mz_bx_txt_size, i_mz_2_r_ln_color, i_mz_bx_txt_align)
+        array.push(mz_2_s_2_bx_arr, mz_2_s_2_bx)
+
+show_last_lines(mz_2_ph_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_pl_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_p_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_r_1_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_s_1_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_r_2_ln_arr, i_mz_2_showlast)
+show_last_lines(mz_2_s_2_ln_arr, i_mz_2_showlast)
+
+show_last_boxes(mz_2_r_1_s_1_bx_arr, i_mz_2_showlast)
+show_last_boxes(mz_2_r_1_bx_arr, i_mz_2_showlast)
+show_last_boxes(mz_2_s_1_bx_arr, i_mz_2_showlast)
+show_last_boxes(mz_2_r_2_bx_arr, i_mz_2_showlast)
+show_last_boxes(mz_2_s_2_bx_arr, i_mz_2_showlast)
+
+//_____________________________ Draw MZ 2 Levels End
+
+//_____________________________ Draw MZ 3 Levels Start
+
+var mz_3_ph_ln_arr = array.new_line(), var mz_3_pl_ln_arr = array.new_line()
+var mz_3_p_ln_arr = array.new_line()
+var mz_3_r_1_ln_arr = array.new_line(), var mz_3_s_1_ln_arr = array.new_line()
+var mz_3_r_2_ln_arr = array.new_line(), var mz_3_s_2_ln_arr = array.new_line()
+
+var mz_3_r_1_s_1_bx_arr = array.new_box()
+var mz_3_r_1_bx_arr = array.new_box(), var mz_3_s_1_bx_arr = array.new_box()
+var mz_3_r_2_bx_arr = array.new_box(), var mz_3_s_2_bx_arr = array.new_box()
+
+if(timeframe.change(i_mz_3_tf))
+    if i_mz_3_pdhl_show
+        mz_3_ph_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_ph, i_mz_3_sub_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_ph_ln_arr, mz_3_ph_ln)
+        mz_3_pl_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_pl, i_mz_3_sub_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_pl_ln_arr, mz_3_pl_ln)
+
+    if i_mz_3_p_show
+        mz_3_p_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_p, i_mz_3_sub_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_p_ln_arr, mz_3_p_ln)
+
+    if i_mz_3_sr_1_show
+        mz_3_r_1_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_r_1, i_mz_3_sub_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_r_1_ln_arr, mz_3_r_1_ln)
+        mz_3_s_1_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_s_1, i_mz_3_sub_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_s_1_ln_arr, mz_3_s_1_ln)
+
+        mz_3_r_bx = draw_box(mz_3_time, mz_3_time_close, mz_3_r_1_top, mz_3_r_1_bot, color.new(i_mz_3_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_3_r_1)) + ' : ' + str.tostring(i_mz_3_tf) + '\n' + '\n', i_mz_bx_txt_size, i_mz_3_sub_color, i_mz_bx_txt_align)
+        array.push(mz_3_r_1_bx_arr, mz_3_r_bx)
+        mz_3_s_bx = draw_box(mz_3_time, mz_3_time_close, mz_3_s_1_top, mz_3_s_1_bot, color.new(i_mz_3_sub_color, i_mz_bx_transp + 10), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_3_s_1)) + ' : ' + str.tostring(i_mz_3_tf), i_mz_bx_txt_size, i_mz_3_sub_color, i_mz_bx_txt_align)
+        array.push(mz_3_s_1_bx_arr, mz_3_s_bx)
+
+        mz_3_r_1_s_1_bx = draw_box(mz_3_time, mz_3_time_close, mz_3_r_1_top, mz_3_s_1_bot, color.new(i_mz_3_sub_color, i_mz_bx_transp), 1, i_mz_bx_style, '', i_mz_bx_txt_size, i_mz_3_sub_color, i_mz_bx_txt_align)
+        array.push(mz_3_r_1_s_1_bx_arr, mz_3_r_1_s_1_bx)
+
+    if i_mz_3_sr_2_show
+        mz_3_r_2_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_r_2, i_mz_3_s_ln_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_r_2_ln_arr, mz_3_r_2_ln)
+        mz_3_s_2_ln = draw_line(mz_3_time, mz_3_time_close, mz_3_s_2, i_mz_3_r_ln_color, i_mz_3_ln_style, i_mz_3_ln_width)
+        array.push(mz_3_s_2_ln_arr, mz_3_s_2_ln)
+
+        mz_3_r_2_bx = draw_box(mz_3_time, mz_3_time_close, mz_3_r_2_top, mz_3_r_2_bot, color.new(i_mz_3_s_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, str.tostring(math.round_to_mintick(mz_3_r_2)) + '\n' + '\n', i_mz_bx_txt_size, i_mz_3_s_ln_color, i_mz_bx_txt_align)
+        array.push(mz_3_r_2_bx_arr, mz_3_r_2_bx)
+        mz_3_s_2_bx = draw_box(mz_3_time, mz_3_time_close, mz_3_s_2_top, mz_3_s_2_bot, color.new(i_mz_3_r_ln_color, i_mz_bx_transp), 1, i_mz_bx_style, '\n' + str.tostring(math.round_to_mintick(mz_3_s_2)), i_mz_bx_txt_size, i_mz_3_r_ln_color, i_mz_bx_txt_align)
+        array.push(mz_3_s_2_bx_arr, mz_3_s_2_bx)
+
+show_last_lines(mz_3_ph_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_pl_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_p_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_r_1_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_s_1_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_r_2_ln_arr, i_mz_3_showlast)
+show_last_lines(mz_3_s_2_ln_arr, i_mz_3_showlast)
+
+show_last_boxes(mz_3_r_1_s_1_bx_arr, i_mz_3_showlast)
+show_last_boxes(mz_3_r_1_bx_arr, i_mz_3_showlast)
+show_last_boxes(mz_3_s_1_bx_arr, i_mz_3_showlast)
+show_last_boxes(mz_3_r_2_bx_arr, i_mz_3_showlast)
+show_last_boxes(mz_3_s_2_bx_arr, i_mz_3_showlast)
+
+//_____________________________ Draw MZ 3 Levels End
+
+//_____________________________ Moving Average Multi Timeframe Start
+
+// Acknowledgement & Reference:
+// Indicator Name: "Multi Timeframe Moving Average [xdecow]" By "xdecow"
+// Indicator Link: https://www.tradingview.com/script/IzmSs7Ma-Multi-Timeframe-Moving-Average-xdecow/
+
+// Functions
+// Resolution to String
+res_to_str(_res) =>
+    if _res == ''
+        ''
+    else if _res == '1'
+        '1m'
+    else if _res == '3'
+        '3m'
+    else if _res == '5'
+        '5m'
+    else if _res == '15'
+        '15m'
+    else if _res == '30'
+        '30m'
+    else if _res == '45'
+        '45m'
+    else if _res == '60'
+        '1h'
+    else if _res == '120'
+        '2h'
+    else if _res == '180'
+        '3h'
+    else if _res == '240'
+        '4h'
+    else if _res == '1D'
+        'D'
+    else if _res == '1W'
+        'W'
+    else if _res == '1M'
+        'M'
+    else if _res == '3M'
+        '3M'
+    else if _res == '6M'
+        '6M'
+    else if _res == '12M'
+        '12M'
+    else
+        _res
+
+ma_offset() =>
+    offset_spaces = ''
+    if i_ma_offset > 0
+        for i = 1 to i_ma_offset by 1
+            offset_spaces += '    '
+    offset_spaces
+
+moving_average(_type, _source, _length) =>
+    float result = na
+    if _type == "EMA"
+        result := ta.ema(_source, _length)
+    if _type == "SMA" 
+        result := ta.sma(_source, _length)
+    result
+
+add_label(show_label, _value, _res, _type, _length, _color) =>
+    label lbl = na
+    if show_label
+        label_text = ''
+        if i_ma_lb_length_show
+            label_text := str.tostring(_length)
+        if i_ma_lb_type_show
+            label_text += (label_text != '' ? ' ' : '') + _type
+        if i_ma_lb_htf_show and _res != ''
+            label_text += (label_text != '' ? ' (' : '') + res_to_str(_res) + ')'
+        if label_text != ''
+            lbl := label.new(bar_index, na(_value) ? close : _value, text=ma_offset() + label_text, color=#00000000, textcolor=_color, style=label.style_label_left, textalign=text.align_left)
+            label.delete(lbl[1])
+
+moving_average_htf(_res, _type, _source, _length) =>
+    _value  = moving_average(_type, _source, _length)
+    [ma_sec, ma_bindex] = request.security(syminfo.tickerid, _res, [_value , bar_index])
+    var int last_barindex = na
+    last_barindex := na(last_barindex[1]) or ma_bindex > last_barindex[1] ? ma_bindex : last_barindex[1]
+    last_barindex != last_barindex[1] or barstate.islast ? ma_sec : na
+
+ma_1 = moving_average_htf(i_ma_1_timeframe, i_ma_1_type, i_ma_1_source, i_ma_1_length)
+ma_2 = moving_average_htf(i_ma_2_timeframe, i_ma_2_type, i_ma_2_source, i_ma_2_length)
+
+plot(series=i_ma_1_show ? ma_1 : na, title='MA 1', color=i_ma_1_color, linewidth=1, offset=i_ma_offset, join=true)
+add_label(i_ma_1_show, ma_1, i_ma_1_timeframe, i_ma_1_type, i_ma_1_length, i_ma_1_color)
+plot(series=i_ma_2_show ? ma_2 : na, title='MA 2', color=i_ma_2_color, linewidth=1, offset=i_ma_offset, join=true)
+add_label(i_ma_2_show, ma_2, i_ma_2_timeframe, i_ma_2_type, i_ma_2_length, i_ma_2_color)
+
+//_____________________________ Moving Average Multi Timeframe End
+
+//_____________________________ Volume Weighted Average price Start
+
+if barstate.islast and ta.cum(volume) == 0
+    runtime.error("No volume is provided by the data vendor.")
+
+isNewPeriod = switch i_vwap_timeframe
+	"Day"   => timeframe.change("D")
+	"Week"      => timeframe.change("W")
+	"Month"     => timeframe.change("M")
+	=> false
+
+float vwap_value = na
+
+[_vwap, _stdevUpper, _] = ta.vwap(i_vwap_source, isNewPeriod, 1)
+vwap_value := _vwap
+
+plot(i_vwap_show ? vwap_value : na, title="VWAP", color=i_vwap_color, linewidth=1)
+
+//_____________________________ Volume Weighted Average price End
+
+//_____________________________ Supertrend Start
+
+// Supertrend Calculation
+dir_up = hl2 - i_st_factor * ta.atr(i_st_atr_period)
+dir_dn = hl2 + i_st_factor * ta.atr(i_st_atr_period)
+
+trend_up = 0.0
+trend_up := close[1] > trend_up[1] ? math.max(dir_up, trend_up[1]) : dir_up
+trend_down = 0.0
+trend_down := close[1] < trend_down[1] ? math.min(dir_dn, trend_down[1]) : dir_dn
+trend = 0.0
+trend := close > trend_down[1] ? 1 : close < trend_up[1] ? -1 : nz(trend[1], 1)
+supertrend = trend == 1 ? trend_up : trend_down
+
+// Color
+st_ln_col = trend == 1 ? i_st_up_color : i_st_dn_color
+
+plot(i_st_show ? supertrend : na, color=st_ln_col, style=plot.style_line, linewidth=1, title="Supertrend")
+
+//_____________________________ Supertrend End
+
+//_____________________________ CODE END
