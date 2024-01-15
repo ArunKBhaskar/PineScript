@@ -1,0 +1,374 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+// Acknowledgement & Reference
+// Trader: 'RicardoSantos'
+// Indicator Title: '[RS]Market Profile'
+// Indicator Link: 'https://www.tradingview.com/script/uoysXxWM-RS-Market-Profile/'
+
+//@version=5
+indicator(title='Market Profile with Screener (Based on [RS]Market Profile by RicardoSantos)', shorttitle='Market Profile Screener', overlay=true, max_lines_count=300, max_boxes_count=300)
+
+//_____________________________ Market Profile Start
+
+//  ||--    Inputs:
+g_mp='Market Profile'
+string i_session_timeframe = input.string(defval='5D', title='Timeframe', group=g_mp)
+float i_percent_of_tpo = input.float(defval=0.7, title='TPO %', group=g_mp)
+int i_sessions = input.int(defval=1, title='Show Last', minval=0, maxval=40, group=g_mp)
+color i_poc_col = input.color(defval=#EA738D, title='Point of Control', group=g_mp)
+color i_va_col = input.color(defval=#89ABE3, title='Value Area', group=g_mp)
+color i_open_col = input.color(defval=color.silver, title='Open', group=g_mp)
+int i_mp_transp = input.int(defval=100, title='Transparency', minval=0, maxval=100, group=g_mp)
+
+//  ||--    Extra Functions:
+f_line_stack(_array, _max_elements, _new_element) =>
+    int _size = array.size(_array)
+    if _size >= _max_elements
+        line.delete(array.pop(_array))
+    array.unshift(_array, _new_element)
+f_open_session_line(_x1, _y1, _x2, _y2) =>
+    line.new(_x1, _y1, _x2, _y2, xloc=xloc.bar_time, color=i_open_col, style=line.style_dashed)
+
+f_box_stack(_array, _max_elements, _new_element) =>
+    int _size = array.size(_array)
+    if _size >= _max_elements
+        box.delete(array.pop(_array))
+    array.unshift(_array, _new_element)
+
+f_poc_box(_x1, _y1, _x2, _y2) =>
+    box.new(_x1, _y1, _x2, _y2, border_color=i_poc_col, xloc=xloc.bar_time, bgcolor=color.new(i_poc_col, i_mp_transp))
+f_vah_box(_x1, _y1, _x2, _y2) =>
+    box.new(_x1, _y1, _x2, _y2, border_color=i_va_col, xloc=xloc.bar_time, bgcolor=color.new(i_va_col, i_mp_transp))
+
+var line[] open_session_lines = array.new_line(0)
+var box[] poc_boxes = array.new_box(0)
+var box[] vah_boxes = array.new_box(0)
+
+float tf_high = high
+float tf_low = low
+float tf_close = close
+
+//  ||--    Bars since session started:
+isnewsession = ta.change(time(i_session_timeframe)) != 0
+
+var int session_bar_counter = 0
+var int previous_session_start = na
+var int previous_session_end = na
+var int session_time_range = na
+
+if isnewsession
+    session_bar_counter := 0
+    previous_session_start := previous_session_end
+    previous_session_end := time
+    session_time_range := previous_session_end - previous_session_start
+    session_time_range
+else
+    session_bar_counter += 1
+    session_bar_counter
+
+//  ||--    session high, low, range:
+var float session_high = tf_high
+var float session_low = tf_low
+var float session_range = tf_high - tf_low
+
+//      ||--    recalculate session high, low and range:
+if session_bar_counter == 0
+    session_high := tf_high
+    session_low := tf_low
+    session_range := tf_high - tf_low
+    session_range
+if tf_high > session_high[1]
+    session_high := tf_high
+    session_range := session_high - session_low
+    session_range
+if tf_low < session_low[1]
+    session_low := tf_low
+    session_range := session_high - session_low
+    session_range
+
+//  ||--    define tpo section range:
+tpo_section_range = session_range / 20
+
+//  ||--    function to get the frequency a specified range is visited:
+f_frequency_of_range(_src, _upper_range, _lower_range, _length) =>
+    _adjusted_length = _length < 1 ? 1 : _length
+    _frequency = 0
+    for _i = 0 to _adjusted_length - 1 by 1
+        if _src[_i] >= _lower_range and _src[_i] < _upper_range
+            _frequency += 1
+            _frequency
+    _return = nz(_frequency, 0)  // _adjusted_length
+    _return
+
+//  ||--    frequency the tpo range is visited:
+tpo_00 = f_frequency_of_range(tf_close, session_high, session_high - tpo_section_range * 1, session_bar_counter)
+tpo_01 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 1, session_high - tpo_section_range * 2, session_bar_counter)
+tpo_02 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 2, session_high - tpo_section_range * 3, session_bar_counter)
+tpo_03 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 3, session_high - tpo_section_range * 4, session_bar_counter)
+tpo_04 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 4, session_high - tpo_section_range * 5, session_bar_counter)
+tpo_05 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 5, session_high - tpo_section_range * 6, session_bar_counter)
+tpo_06 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 6, session_high - tpo_section_range * 7, session_bar_counter)
+tpo_07 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 7, session_high - tpo_section_range * 8, session_bar_counter)
+tpo_08 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 8, session_high - tpo_section_range * 9, session_bar_counter)
+tpo_09 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 9, session_high - tpo_section_range * 10, session_bar_counter)
+tpo_10 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 10, session_high - tpo_section_range * 11, session_bar_counter)
+tpo_11 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 11, session_high - tpo_section_range * 12, session_bar_counter)
+tpo_12 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 12, session_high - tpo_section_range * 13, session_bar_counter)
+tpo_13 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 13, session_high - tpo_section_range * 14, session_bar_counter)
+tpo_14 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 14, session_high - tpo_section_range * 15, session_bar_counter)
+tpo_15 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 15, session_high - tpo_section_range * 16, session_bar_counter)
+tpo_16 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 16, session_high - tpo_section_range * 17, session_bar_counter)
+tpo_17 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 17, session_high - tpo_section_range * 18, session_bar_counter)
+tpo_18 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 18, session_high - tpo_section_range * 19, session_bar_counter)
+tpo_19 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 19, session_high - tpo_section_range * 20, session_bar_counter)
+tpo_20 = f_frequency_of_range(tf_close, session_high - tpo_section_range * 20, session_high - tpo_section_range * 21, session_bar_counter)
+
+//  ||--    function to retrieve a specific tpo value
+f_get_tpo_count(_value) =>
+    _return = switch (_value)
+        0 => tpo_00
+        1 => tpo_01
+        2 => tpo_02
+        3 => tpo_03
+        4 => tpo_04
+        5 => tpo_05
+        6 => tpo_06
+        7 => tpo_07
+        8 => tpo_08
+        9 => tpo_09
+        10 => tpo_10
+        11 => tpo_11
+        12 => tpo_12
+        13 => tpo_13
+        14 => tpo_14
+        15 => tpo_15
+        16 => tpo_16
+        17 => tpo_17
+        18 => tpo_18
+        19 => tpo_19
+        20 => tpo_20
+        => 0.0
+
+tpo_sum = 0.0
+current_poc_position = 0.0
+current_poc_value = 0.0
+
+for _i = 0 to 20 by 1
+    _get_tpo_value = f_get_tpo_count(_i)
+    tpo_sum += _get_tpo_value
+    if _get_tpo_value >= current_poc_value
+        current_poc_position := _i
+        current_poc_value := _get_tpo_value
+        current_poc_value
+
+poc_upper = session_high - tpo_section_range * current_poc_position
+poc_lower = session_high - tpo_section_range * (current_poc_position + 1)
+
+//  ||--    get value area high/low
+vah_position = current_poc_position
+val_position = current_poc_position
+current_sum = current_poc_value
+
+for _i = 0 to 20 by 1
+    if current_sum < tpo_sum * i_percent_of_tpo
+        vah_position := math.max(0, vah_position - 1)
+        current_sum += f_get_tpo_count(math.round(vah_position))
+        current_sum
+    if current_sum < tpo_sum * i_percent_of_tpo
+        val_position := math.min(20, val_position + 1)
+        current_sum += f_get_tpo_count(math.round(val_position))
+        current_sum
+
+vah_value = session_high - tpo_section_range * vah_position
+val_value = session_high - tpo_section_range * (val_position + 1)
+
+if isnewsession
+    f_box_stack(vah_boxes, i_sessions, f_vah_box(previous_session_end, vah_value[1], time_close(i_session_timeframe), val_value[1]))
+    f_box_stack(poc_boxes, i_sessions, f_poc_box(previous_session_end, poc_upper[1], time_close(i_session_timeframe), poc_lower[1]))
+    f_line_stack(open_session_lines, i_sessions, f_open_session_line(previous_session_end, open, time_close(i_session_timeframe), open))
+
+// Function to get the pivot value
+vahl_pivot_value(src) =>
+    ta.valuewhen(session_bar_counter == 0, src[1], 0)
+
+// Get VAH and VAL pivots
+vah_pivot = vahl_pivot_value(vah_value)
+val_pivot = vahl_pivot_value(val_value)
+poc_pivot = vahl_pivot_value(math.avg(poc_upper, poc_lower))
+
+// Calculate percentage between VAH and VAL
+va_percent = ((vah_pivot - val_pivot) / val_pivot) * 100
+poc_percent = ((close - poc_pivot) / poc_pivot) * 100
+//_____________________________ Market Profile End
+
+
+//_____________________________ Screener Start
+
+// Note:
+// - TradingView allows up to 40 requests per indicator, so keep the number of symbols below 40.
+// - Too many requests and complex calculations may slow down the indicator.
+// - You can combine multiple indicators in one script, like Close crossing above EMA 20, RSI crossing 60, etc.
+
+//_____________________________ Menu Screener Table Start
+
+g_tb = 'Screener : Table'
+tt_is = //"• Input exactly 40 symbols, nothing more or less." +
+     "• Total characters cannot exceed 4096." +
+     "\n• Use comma as delimiter without any space." +
+     "\n• Eg: 'EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B'"
+
+string i_symbols = input.text_area(
+ defval='NSE:ADANIPOWER,NSE:ARVIND,NSE:ASHOKA,NSE:BANKINDIA,NSE:BLS,NSE:BOMDYEING,NSE:CUB,NSE:DBL,NSE:DELTACORP,NSE:ENGINERSIN,NSE:GIPCL,NSE:GMDCLTD,NSE:GPPL,NSE:HINDCOPPER,NSE:INDIACEM,NSE:INOXWIND,NSE:IPL,NSE:IRCON,NSE:ITI,NSE:JAMNAAUTO,NSE:JKTYRE,NSE:KESORAMIND,NSE:LEMONTREE,NSE:MOIL,NSE:MRPL,NSE:NLCINDIA,NSE:ONMOBILE,NSE:PFC,NSE:PPLPHARMA,NSE:PTC,NSE:RAILTEL,NSE:RCF,NSE:RVNL,NSE:SHRIRAMPPS,NSE:TI,NSE:WELCORP,NSE:L_TFH,NSE:WOCKPHARMA,NSE:ZOMATO',
+ title="Paste Symbols", tooltip=tt_is, group=g_tb)
+
+float i_va_above = input.float(defval=0, title='VA % Between', minval=0, maxval=100, inline='1', group=g_tb)
+float i_va_below = input.float(defval=3, title='', minval=0, maxval=100, inline='1', group=g_tb)
+
+float i_ltp_above = input.float(defval=-10, title='LTP % Between', inline='2', group=g_tb)
+float i_ltp_below = input.float(defval=10, title='', inline='2', group=g_tb)
+
+
+int i_tbl_disp_rows = input.int(defval=15, title='Display Rows', minval=0, maxval=100, group=g_tb)
+string i_tbl_position = input.string(defval=position.bottom_left, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.small, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+
+color i_tbl_neu_col = input.color(defval=#B2B5BE, title='Color', group=g_tb)
+
+//_____________________________ Menu Screener Table End
+
+//_______________________ Get Symbols Start
+
+// Acknowledgement & Reference
+// Trader: 'allanster'
+// Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
+// Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
+
+feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
+    loop  = back                                          // declare string variable to hold content list
+    getT  = string(na)                                    // declare string variable to hold tickerid
+    if str.length(loop) == 0                              // if list is empty
+        getT := string(na)                                // assign na to tickerid variable
+        loop := string(na)                                // assign na to list of ticker Ids variable
+    else                                                  // else extract first tickerid
+        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
+        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
+    [getT, loop]                                          // return tickerid in first position & truncated list
+
+[tid_001, out_001] = feed(i_symbols), [tid_002, out_002] = feed(out_001), [tid_003, out_003] = feed(out_002), [tid_004, out_004] = feed(out_003),
+[tid_005, out_005] = feed(out_004), [tid_006, out_006] = feed(out_005), [tid_007, out_007] = feed(out_006), [tid_008, out_008] = feed(out_007),
+[tid_009, out_009] = feed(out_008), [tid_010, out_010] = feed(out_009), [tid_011, out_011] = feed(out_010), [tid_012, out_012] = feed(out_011),
+[tid_013, out_013] = feed(out_012), [tid_014, out_014] = feed(out_013), [tid_015, out_015] = feed(out_014), [tid_016, out_016] = feed(out_015),
+[tid_017, out_017] = feed(out_016), [tid_018, out_018] = feed(out_017), [tid_019, out_019] = feed(out_018), [tid_020, out_020] = feed(out_019),
+[tid_021, out_021] = feed(out_020), [tid_022, out_022] = feed(out_021), [tid_023, out_023] = feed(out_022), [tid_024, out_024] = feed(out_023),
+[tid_025, out_025] = feed(out_024), [tid_026, out_026] = feed(out_025), [tid_027, out_027] = feed(out_026), [tid_028, out_028] = feed(out_027),
+[tid_029, out_029] = feed(out_028), [tid_030, out_030] = feed(out_029), [tid_031, out_031] = feed(out_030), [tid_032, out_032] = feed(out_031),
+[tid_033, out_033] = feed(out_032), [tid_034, out_034] = feed(out_033), [tid_035, out_035] = feed(out_034), [tid_036, out_036] = feed(out_035),
+[tid_037, out_037] = feed(out_036), [tid_038, out_038] = feed(out_037), [tid_039, out_039] = feed(out_038), [tid_040, out_040] = feed(out_039)
+
+//_______________________ Get Symbols End
+
+// _____________________________ Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'MUQWISHI'
+// Indicator Title: 'Candlestick Patterns Screener [By MUQWISHI]'
+// Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
+
+// Function for Screener Indicator Calculation
+
+screener_condition = va_percent > i_va_above and va_percent <= i_va_below and poc_percent <= i_ltp_below and poc_percent >= i_ltp_above
+
+truncate(number, decimals) =>
+    factor = math.pow(10, decimals)
+    int(number * factor) / factor
+
+indicator_calculation() =>
+    // Initialize variables
+    percent = float(na)
+    _time = int(na)
+    pchg = float(na)
+
+    if screener_condition
+        percent := truncate(va_percent, 2)
+        _time := time
+        pchg := truncate(poc_percent, 2)
+
+    [_time, percent, pchg]
+
+// Function to format time
+format_time(x) =>
+    timezone = syminfo.timezone
+    timeframe.isintraday ? str.format_time(x, "HH:mm  dd-MM-yyyy", timezone) : str.format_time(x, "dd-MM-yyyy", timezone)
+
+// Function to extract symbol name
+symbol(s) => 
+    array.get(str.split(s, ":"), 1)
+
+// Matrix setup
+var matrix = matrix.new<string>(0, 4, na)
+
+// Function to add rows to the matrix
+mtxFun(symbol, _time, percent, pchg) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, percent, pchg))
+
+// Screener function to collect data
+screener(s) =>
+    sym = ticker.modify(s, syminfo.session)
+    [_time, percent, pchg] = request.security(sym, timeframe.period, indicator_calculation())
+
+    // Check if the signal is not na and the time matches
+    if _time == time
+        mtxFun(symbol(s), format_time(_time), str.tostring(percent), str.tostring(pchg))
+
+// Call Screener function for multiple symbols
+screener(tid_001), screener(tid_002), screener(tid_003), screener(tid_004), screener(tid_005), screener(tid_006), screener(tid_007),
+screener(tid_008), screener(tid_009), screener(tid_010), screener(tid_011), screener(tid_012), screener(tid_013), screener(tid_014),
+screener(tid_015), screener(tid_016), screener(tid_017), screener(tid_018), screener(tid_019), screener(tid_020), screener(tid_021),
+screener(tid_022), screener(tid_023), screener(tid_024), screener(tid_025), screener(tid_026), screener(tid_027), screener(tid_028),
+screener(tid_029), screener(tid_030), screener(tid_031), screener(tid_032), screener(tid_033), screener(tid_034), screener(tid_035),
+screener(tid_036), screener(tid_037), screener(tid_038), screener(tid_039), screener(tid_040)
+
+// Trim excess rows in the matrix
+if matrix.rows(matrix) > i_tbl_disp_rows
+    while matrix.rows(matrix) > i_tbl_disp_rows
+        matrix.remove_row(matrix, matrix.rows(matrix)-1)
+
+// Plot Table
+// Create table with specified properties
+var table tbl = table.new(position=i_tbl_position, columns=4, rows=102, border_width=1)
+
+tt_tbl = "Time: Signal generation time.\n" +
+     "% VAHL: Percentage between VAH & VAL.\n" +
+     "% LTP: Percentage change from POC mid to LTP."
+
+// Function to populate cells in the table
+cell(col, row, txt, color) => 
+    table.cell(tbl, col, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 80), text_size=i_tbl_text_size, tooltip=tt_tbl)
+
+// Check if it's the last bar
+if barstate.islast
+    // Clear existing data in the table
+    table.clear(tbl, 0, 0, 3, 101)
+
+    // Set headers for the table
+    cell(0, 0, "Symbol", i_tbl_neu_col)
+    cell(1, 0, "Time",   i_tbl_neu_col)
+    cell(2, 0, "% VAHL" ,  i_tbl_neu_col)
+    cell(3, 0, "% LTP" ,  i_tbl_neu_col)
+
+    j = 1
+    // Populate table with matrix data
+    if matrix.rows(matrix) > 0
+        for i = 0 to matrix.rows(matrix) - 1
+            // Populate cells in the table
+            cell(0, j, matrix.get(matrix, i, 0), i_tbl_neu_col)
+            cell(1, j, matrix.get(matrix, i, 1), i_tbl_neu_col)
+            cell(2, j, matrix.get(matrix, i, 2), i_tbl_neu_col)
+            cell(3, j, matrix.get(matrix, i, 3), i_tbl_neu_col)
+
+            j += 1
+
+// _____________________________ Screener End
+// _____________________________ Code End
