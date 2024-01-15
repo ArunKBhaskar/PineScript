@@ -1,5 +1,5 @@
 # TradingView Pine Script Code Collection
-This is collection of TradingView Pine Script codes.
+This is a collection of TradingView Pine Script codes which are not published in TradingView.
 
 # How to add the Pine Script Code to TradingView Chart?
 1. Open TradingView chart.
