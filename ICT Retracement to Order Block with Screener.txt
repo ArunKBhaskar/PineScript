@@ -1,0 +1,473 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title="ICT Retracement to Order Block with Screener", shorttitle="Retracement to OB", overlay=true)
+
+tt_p = "• Period is the count of candles used to determine the highest high & lowest low." +
+ "\n• Default period 30 works for all timeframes but is optimized for 15m & 1h." +
+ "\n• Experiment with other values as needed."
+int i_period = input.int(defval=30, title="Period", minval=1, tooltip=tt_p)
+
+tt_vo = "• Vertical offset is like a buffer in case price doesn't hit the order block exactly." +
+ "\n• Default is 0, meaning no buffer. The 3rd signal appears only on precise touch to the order block." +
+ "\n• Example: If 'Vertical Offset (%)' is 50" +
+ "\n• For Long: Calculate a price 50% higher than the 1st candle's high." +
+ "\n• For Short: Calculate a price 50% lower than the 1st candle's low."
+float i_vertical_offset = input.float(defval=0, title='Vertical Offset (%)', tooltip=tt_vo) / 100
+
+//_____________________________ Menu Screener Start
+g_tb = 'Screener'
+tt_is = "• Input exactly 40 symbols, nothing more or less." +
+     "\n• Total characters cannot exceed 4096." +
+     "\n• Use comma as delimiter without any space." +
+     "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+
+string i_symbols = input.text_area(
+ defval="NSE:ABCAPITAL,NSE:ANANTRAJ,NSE:ASTERDM,NSE:BANKINDIA,NSE:BIOCON,NSE:CAPACITE,NSE:CESC,NSE:CGPOWER,NSE:DCBBANK,NSE:DELHIVERY,NSE:ELECTCAST,NSE:EXIDEIND,NSE:FINPIPE,NSE:FSL,NSE:GAIL,NSE:GENUSPOWER,NSE:GEPIL,NSE:GMDCLTD,NSE:GREAVESCOT,NSE:HEMIPROP,NSE:HITECH,NSE:HPL,NSE:HSCL,NSE:IIFLSEC,NSE:INDUSTOWER,NSE:IPL,NSE:JAGRAN,NSE:JWL,NSE:KALYANKJIL,NSE:KCP,NSE:L_TFH,NSE:MANINDS,NSE:MOTHERSON,NSE:NAVKARCORP,NSE:NTPC,NSE:ONGC,NSE:PAISALO,NSE:PENIND,NSE:POONAWALLA,NSE:PPLPHARMA",
+ title="Paste Symbols", tooltip=tt_is, group=g_tb)
+
+string i_scr_direction = input.string(defval='Both', title='Direction', options=['Both', 'Bullish', 'Bearish'], inline='tb_1', group=g_tb)
+bool i_scr_show_bull_mc  = input.bool(defval=true, title='Only Bullish', inline='tb_2', group=g_tb)
+bool i_scr_show_bear_mc  = input.bool(defval=true, title='Only Bearish', inline='tb_2', group=g_tb)
+
+int i_tbl_disp_rows = input.int(defval=16, title='Display Rows', minval=0, maxval=100, group=g_tb)
+string i_tbl_position = input.string(defval=position.bottom_left, title='Table Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.small, title='Table Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+//_____________________________ Menu Screener End
+
+//_______________________ Menu Line Start
+g_ln = "Line Settings"
+string i_ln_style = input.string(defval=line.style_solid, title="Style", options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_ln)
+int i_ln_width = input.int(defval=1, title="Width", minval=1, group=g_ln)
+//_______________________ Menu Line End
+
+//_______________________ Menu Color Start
+g_c = 'Colors'
+color i_pos_col = input.color(defval=#22AB94, title='+', inline='c_1', group=g_c)
+color i_neg_col = input.color(defval=#F7525F, title='-', inline='c_1', group=g_c)
+color i_neu_col = input.color(defval=#B2B5BE, title='0', inline='c_1', group=g_c)
+//_______________________ Menu Color End
+
+//_______________________ Momentum Candle Start
+body = math.abs(close - open)
+wick = high - low
+momentum_candle = body / wick > 0.66
+//_______________________ Momentum Candle End
+
+//_______________________ ATR Start
+atr_support = wick >= ta.atr(14)
+//_______________________ ATR End
+
+//_______________________ Donchain Start
+highest_high = ta.highest(high, i_period)[1]
+lowest_low = ta.lowest(low, i_period)[1]
+
+plot(series=highest_high, title="Highest High", color=i_neg_col, display=display.none)
+plot(series=lowest_low, title="Lowest Low", color=i_pos_col, display=display.none)
+//_______________________ Donchain End
+
+//___________________________ Primary Signal Start
+// Primary Signal Rules
+primary_long_condition = barstate.isconfirmed and
+ open > close and
+ low < lowest_low and
+ momentum_candle and 
+ atr_support 
+
+primary_short_condition = barstate.isconfirmed and
+ open < close and
+ high > highest_high and
+ momentum_candle and 
+ atr_support
+
+// Primary Signal Function
+exrem(condition_1, condition_2) =>
+    var entry_signal = 0
+    entry_signal := condition_1 ? 1 : condition_2 ? -1 : entry_signal[1]
+    entry = entry_signal != entry_signal[1]
+    buy = entry and entry_signal == 1
+    sell = entry and entry_signal == -1
+    [buy, sell]
+
+// Primary Signals
+[primary_long_signal, primary_short_signal] = exrem(primary_long_condition, primary_short_condition)
+//___________________________ Primary Signal End
+
+//___________________________ Secondary Signal Start
+// Acknowledgement & Reference
+// Title: 'how to get high of a candle which crossover moving average'
+// Link: "https://stackoverflow.com/questions/74894187/how-to-get-high-of-a-candle-which-crossover-moving-average"
+
+// Secondary Signal Function
+trigger(primary_condition, secondary_condition) =>
+    var current_state = 0
+    previous_state = nz(current_state[1])
+    current_state := previous_state == 2 ? 0 : previous_state
+    if primary_condition and current_state == 0
+        current_state := 1
+    if secondary_condition and current_state == 1
+        current_state := 2
+    trigger_condition = current_state == 2 ? true : false
+    [current_state, trigger_condition]
+
+var prev_high_when_crossover = float(na)
+if primary_long_signal
+    prev_high_when_crossover := high
+
+var prev_low_when_crossunder = float(na)
+if primary_short_signal
+    prev_low_when_crossunder := low
+
+// Secondary Signal Rules
+secondary_long_condition = barstate.isconfirmed and
+ open < close and
+ close > prev_high_when_crossover and
+ //momentum_candle and
+ atr_support
+
+secondary_short_condition = barstate.isconfirmed and
+ open > close and
+ close < prev_low_when_crossunder and
+ //momentum_candle and
+ atr_support
+
+// Secondary Signal
+[secondary_long, secondary_long_signal] = trigger(primary_long_signal, secondary_long_condition)
+[secondary_short, secondary_short_signal] = trigger(primary_short_signal, secondary_short_condition)
+//___________________________ Secondary Signal End
+
+//___________________________ Vertical Offset Start
+vertical_offset(top_price, bottom_price, offset_value) =>
+    diff = top_price - bottom_price
+    top_level = top_price + (diff * offset_value)
+    bottom_level = bottom_price - (diff * offset_value)
+    [top_level, bottom_level]
+
+[top_price, bottom_price] = vertical_offset(high, low, i_vertical_offset)
+//___________________________ Vertical Offset End
+
+//___________________________ Teritiary Signal Start
+var primary_long_candle_high = float(na)
+if primary_long_signal
+    primary_long_candle_high := top_price
+
+var primary_short_candle_low = float(na)
+if primary_short_signal
+    primary_short_candle_low := bottom_price
+
+// Teritiary Signal Rules
+teritiary_long_condition = barstate.isconfirmed and
+ ta.crossunder(low, primary_long_candle_high)
+
+teritiary_short_condition = barstate.isconfirmed and
+ ta.crossover(high, primary_short_candle_low)
+
+// Teritiary Signal
+[teritiary_long, teritiary_long_signal] = trigger(secondary_long_signal, teritiary_long_condition)
+[teritiary_short, teritiary_short_signal] = trigger(secondary_short_signal, teritiary_short_condition)
+//___________________________ Secondary Signal End
+
+//___________________________ Plot Alert & Break Start
+// Plot Long Break & Break
+plotshape(
+         series = primary_long_signal,
+         title = 'Long Break', 
+         style = shape.circle, 
+         location = location.belowbar, 
+         color = i_pos_col, 
+         text = "1", 
+         textcolor = i_pos_col, 
+         size = size.tiny 
+         )
+
+plot(series = primary_long_signal ? high : na, title = 'Past Long Break Line', color = i_pos_col, style = plot.style_stepline_diamond, display = display.none)
+
+plotshape(
+         series = secondary_long_signal,
+         title = 'Long Retrace', 
+         style = shape.circle, 
+         location = location.belowbar, 
+         color = i_pos_col, 
+         text = '2', 
+         textcolor = i_pos_col, 
+         size = size.tiny
+         )
+
+plotshape(
+         series = teritiary_long_signal,
+         title = 'Long Retrace', 
+         style = shape.circle, 
+         location = location.belowbar, 
+         color = i_pos_col, 
+         text = '3', 
+         textcolor = i_pos_col, 
+         size = size.tiny
+         )
+
+// Plot Short Break & Break
+plotshape(
+         series = primary_short_signal,
+         title = "Short Break", 
+         style = shape.circle, 
+         location = location.abovebar, 
+         color = i_neg_col, 
+         text = "1", 
+         textcolor = i_neg_col, 
+         size = size.tiny
+         )
+
+plot(series = primary_short_signal ? low : na, title = 'Past Short Break Line', color = i_neg_col, style = plot.style_stepline_diamond, display = display.none)
+
+plotshape(
+         series = secondary_short_signal,
+         title = 'Short Retrace', 
+         style = shape.circle, 
+         location = location.abovebar, 
+         color = i_neg_col, 
+         text = '2', 
+         textcolor = i_neg_col, 
+         size = size.tiny
+         )
+
+plotshape(
+         series = teritiary_short_signal,
+         title = 'Short Retrace', 
+         style = shape.circle, 
+         location = location.abovebar, 
+         color = i_neg_col, 
+         text = '3', 
+         textcolor = i_neg_col, 
+         size = size.tiny
+         )
+//___________________________ Plot Alert & Break End 
+
+//___________________________ Draw Alert Price Lines Start
+// Acknowledgement & Reference
+// Trader: "apozdnyakov"
+// Indicator Title: "Three horizontal lines on condition"
+// Indicator Link: "https://in.tradingview.com/script/hxogJn3E-Three-horizontal-lines-on-condition/"
+
+var line alert_break_line = na
+
+if primary_long_signal
+    line.delete(alert_break_line)
+    alert_break_line := line.new(x1=bar_index, y1=high, x2=bar_index+1, y2=high, extend=extend.right, color=i_pos_col, style=i_ln_style, width=i_ln_width)
+
+else if primary_short_signal
+    line.delete(alert_break_line)
+    alert_break_line := line.new(x1=bar_index, y1=low, x2=bar_index+1, y2=low, extend=extend.right, color=i_neg_col, style=i_ln_style, width=i_ln_width)
+//___________________________ Draw Alert Price Lines Start
+
+// Plot Historical Breaks
+// Acknowledgement & Reference
+// Title: "How can I get a value since a condition happen? (Pinescript)"
+// Link: "https://stackoverflow.com/questions/73009687/how-can-i-get-a-value-since-a-condition-happen-pinescript"
+
+//_______________________ Get Symbols Start
+// Acknowledgement & Reference
+// Trader: 'allanster'
+// Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
+// Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
+
+feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
+    loop  = back                                          // declare string variable to hold content list
+    getT  = string(na)                                    // declare string variable to hold tickerid
+    if str.length(loop) == 0                              // if list is empty
+        getT := string(na)                                // assign na to tickerid variable
+        loop := string(na)                                // assign na to list of ticker Ids variable
+    else                                                  // else extract first tickerid
+        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
+        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
+    [getT, loop]                                          // return tickerid in first position & truncated list
+
+[tid_001, out_001] = feed(i_symbols), [tid_002, out_002] = feed(out_001), [tid_003, out_003] = feed(out_002), [tid_004, out_004] = feed(out_003),
+[tid_005, out_005] = feed(out_004), [tid_006, out_006] = feed(out_005), [tid_007, out_007] = feed(out_006), [tid_008, out_008] = feed(out_007),
+[tid_009, out_009] = feed(out_008), [tid_010, out_010] = feed(out_009), [tid_011, out_011] = feed(out_010), [tid_012, out_012] = feed(out_011),
+[tid_013, out_013] = feed(out_012), [tid_014, out_014] = feed(out_013), [tid_015, out_015] = feed(out_014), [tid_016, out_016] = feed(out_015),
+[tid_017, out_017] = feed(out_016), [tid_018, out_018] = feed(out_017), [tid_019, out_019] = feed(out_018), [tid_020, out_020] = feed(out_019),
+[tid_021, out_021] = feed(out_020), [tid_022, out_022] = feed(out_021), [tid_023, out_023] = feed(out_022), [tid_024, out_024] = feed(out_023),
+[tid_025, out_025] = feed(out_024), [tid_026, out_026] = feed(out_025), [tid_027, out_027] = feed(out_026), [tid_028, out_028] = feed(out_027),
+[tid_029, out_029] = feed(out_028), [tid_030, out_030] = feed(out_029), [tid_031, out_031] = feed(out_030), [tid_032, out_032] = feed(out_031),
+[tid_033, out_033] = feed(out_032), [tid_034, out_034] = feed(out_033), [tid_035, out_035] = feed(out_034), [tid_036, out_036] = feed(out_035),
+[tid_037, out_037] = feed(out_036), [tid_038, out_038] = feed(out_037), [tid_039, out_039] = feed(out_038), [tid_040, out_040] = feed(out_039)
+//_______________________ Get Symbols End
+
+// _____________________________ Screener Start
+// Acknowledgement & Reference
+// Trader: 'MUQWISHI'
+// Indicator Title: 'Candlestick Patterns Screener [By MUQWISHI]'
+// Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
+
+// Screener Conditions
+bullish_cond = teritiary_long_signal
+bearish_cond = teritiary_short_signal
+
+// Define Bull and Bear Conditions
+bull = not(i_scr_direction == "Bearish")
+bear = not(i_scr_direction == "Bullish")
+
+// Function for Screener Indicator Calculation
+indicator_calculation() =>
+    // Initialize variables
+    price = float(na)
+    _time = int(na)
+    indicator = ""
+    signal = int(na) 
+
+    if barstate.isconfirmed
+        // Check for Bearish Momentum Candle and conditions (Modify here to customize indicators)
+        if i_scr_show_bear_mc and bearish_cond and bear 
+            indicator := "▼"
+            signal := -1
+
+        // Check for Bullish Momentum Candle and conditions (Modify here to customize indicators)
+        else if i_scr_show_bull_mc and bullish_cond and bull
+            indicator := "▲"
+            signal := 1
+
+        // Update price and time if signal is not null
+        if not na(signal)
+            price := math.round_to_mintick(close)
+            _time := time
+
+    [_time, indicator, price, signal]
+
+// Function to format time
+format_time(x) =>
+    timezone = syminfo.timezone
+    timeframe.isintraday ? str.format_time(x, "HH:mm  dd-MM-yyyy", timezone) : str.format_time(x, "dd-MM-yyyy", timezone)
+
+// Function to extract symbol name
+symbol(s) => 
+    array.get(str.split(s, ":"), 1)
+
+// Matrix setup
+var matrix = matrix.new<string>(0, 5, na)
+
+// Function to add rows to the matrix
+mtxFun(symbol, _time, indicator, price, signal) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, indicator, price, signal))
+
+// Screener function to collect data
+screener(s) =>
+    sym = ticker.modify(s, syminfo.session)
+    [_time, indicator, price, signal] = request.security(sym, timeframe.period, indicator_calculation())
+
+    // Check if the signal is not na and the time matches
+    if not na(signal) and _time == time
+        symbolName = symbol(s)
+        formattedTime = format_time(_time)
+        strPrice = str.tostring(price)
+        strSignal = str.tostring(signal)
+        
+        // Add data to the matrix
+        mtxFun(symbolName, formattedTime, indicator, strPrice, strSignal)
+
+// Call Screener function for multiple symbols
+screener(tid_001), screener(tid_002), screener(tid_003), screener(tid_004), screener(tid_005), screener(tid_006), screener(tid_007),
+screener(tid_008), screener(tid_009), screener(tid_010), screener(tid_011), screener(tid_012), screener(tid_013), screener(tid_014),
+screener(tid_015), screener(tid_016), screener(tid_017), screener(tid_018), screener(tid_019), screener(tid_020), screener(tid_021),
+screener(tid_022), screener(tid_023), screener(tid_024), screener(tid_025), screener(tid_026), screener(tid_027), screener(tid_028),
+screener(tid_029), screener(tid_030), screener(tid_031), screener(tid_032), screener(tid_033), screener(tid_034), screener(tid_035),
+screener(tid_036), screener(tid_037), screener(tid_038), screener(tid_039), screener(tid_040)
+
+// Trim excess rows in the matrix
+if matrix.rows(matrix) > i_tbl_disp_rows
+    while matrix.rows(matrix) > i_tbl_disp_rows
+        matrix.remove_row(matrix, matrix.rows(matrix)-1)
+
+// Plot Table
+// Create table with specified properties
+var table tbl = table.new(position=i_tbl_position, columns=4, rows=102, border_width=1)
+
+// Function to populate cells in the table
+cell(col, row, txt, color) => 
+    table.cell(tbl, col, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 90), text_size=i_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast
+    // Clear existing data in the table
+    table.clear(tbl, 0, 0, 3, 101)
+
+    // Set headers for the table
+    cell(0, 0, "Symbol", i_neu_col)
+    cell(1, 0, "Time",   i_neu_col)
+    cell(2, 0, "Dir" ,  i_neu_col)
+    cell(3, 0, "Price",  i_neu_col)
+
+    j = 1
+    // Populate table with matrix data
+    if matrix.rows(matrix) > 0
+        for i = 0 to matrix.rows(matrix) - 1
+            // Determine color based on the signal
+            col = matrix.get(matrix, i, 4) ==  "1" ? i_pos_col :
+                  matrix.get(matrix, i, 4) == "-1" ? i_neg_col : i_neu_col
+
+            // Populate cells in the table
+            cell(0, j, matrix.get(matrix, i, 0), col)
+            cell(1, j, matrix.get(matrix, i, 1), col)
+            cell(2, j, matrix.get(matrix, i, 2), col)
+            cell(3, j, matrix.get(matrix, i, 3), col)
+
+            j += 1
+// _____________________________ Screener End
+// _____________________________ Code End
+
+// Read Me
+//
+// Title: Retracement to Order Block with Screener
+// Date: Created on 14 January 2024
+//
+// One-liner:
+// # The indicator aims to identify the candle returning to the order block through a screener.
+//
+// Important Notes:
+// # This inicator does not strictly adhere to the 100% rules of ICT order block.
+// # Due to coding limitations, only the core ideas of ICT concepts are implemented.
+// # The screener won't identify the trend, so it is essential to confirm the direction independently.
+// # The screener and the indicator may display inaccurate results.
+// # Avoid blindly following the signals.
+//
+// Order Block identification (For those who are unfamiliar):
+// # Identifying the lowest or highest candle that breaks the old lowest low or highest high, respectively.
+// # If a candle closes above or below it, the lowest or highest candle can be considered as an order block.
+// # Afterward, the price should move 2 or 3 times away from the order block candle.
+// # After that, when the price returns to the close of the order block, it can be considered as an entry.
+//
+// Multi-timeframe Analysis for Trend Confirmation (For those who are unfamiliar):
+// # Utilize three different timeframes for a comprehensive approach and trend confirmation.
+// # For Positional use Monthly, Weekly, and Daily.
+// # For Intraday or Swings use 1 Hour, 15 Minutes, and 5 Minutes.
+//
+// Learning Resource (For those who are unfamiliar):
+// # For a more in-depth understanding, study the order block concept by Michael Joe Huddleston, popularly known as 'ICT' or 'The Inner Circle Trader'.
+// # Due to the interrelated nature of various topics and jargon, it is recommended to watch the associated lessons for a more comprehensive understanding of entry and exit rules.
+//
+// How to Use the Indicator for Long:
+// # Signal 1: This identifies the order block candle. It is a candle above 66% of the body that breaks the low of the past 30 candles.
+// # Signal 2: It occurs when a momentum candle closes above the high of Signal 1 candle (order block).
+// # Signal 3: Occurs when, after Signal 2 candle, the price returns to the high of the order block (Signal 1 candle).
+//
+// How to Use the Indicator for Short:
+// # Signal 1: This identifies the order block candle. It is a candle above 66% of the body that breaks the high of the past 30 candles.
+// # Signal 2: It occurs when a momentum candle closes below the low of Signal 1 candle (order block).
+// # Signal 3: Occurs when, after Signal 2 candle, the price returns to the low of the order block (Signal 1 candle).
+//
+// Timeframe Considerations:
+// # Period is the count of candles used to determine the highest high & lowest low.
+// # The default period is set to 30, which works for all timeframes, but it is mainly optimized for 15m and 1h.
+// # Experiment with other values as for different timeframes as per your requirement.
+//
+// How to use Vertical Offset:
+// # Vertical offset acts as a buffer in case the price doesn't precisely hit the order block.
+// # The default is 0, indicating no buffer. The 3rd signal appears only on a precise touch to the order block.
+// # Example: If 'Vertical Offset (%)' is set to 50:
+// # For Long it calculates a price 50% higher than the 1st candle's high.
+// # For Short it calculates a price 50% lower than the 1st candle's low.
+//
+// The Screener and Its Limitations:
+// # You can only upto 40 symbols in this format EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B
+//
+// # Note: Always exercise caution and discretion, considering market conditions and other factors, while using this indicator.
