@@ -1,0 +1,285 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+i_max_bars_back = 300
+indicator(title="ICT Equal Highs and Lows with Screener", shorttitle="Equal HL Scr", overlay=true, max_bars_back=i_max_bars_back, max_lines_count=500, max_labels_count=500)
+
+//_____________________________ Menu Screener Start
+
+g_tb = '█████████████████ Screener █████████████████'
+tt_is = "• Input exactly 40 symbols, nothing more or less." +
+     "\n• Total characters cannot exceed 4096." +
+     "\n• Use comma as delimiter without any space." +
+     "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+
+string i_symbols = input.text_area(
+ defval="NSE:AEGISCHEM,NSE:BANKINDIA,NSE:BHEL,NSE:BLS,NSE:CASTROLIND,NSE:CESC,NSE:ENGINERSIN,NSE:EQUITASBNK,NSE:FSL,NSE:GICRE,NSE:GPPL,NSE:GSPL,NSE:HFCL,NSE:HINDCOPPER,NSE:HUDCO,NSE:IBULHSGFIN,NSE:INDIACEM,NSE:INDUSTOWER,NSE:IOC,NSE:IRCON,NSE:IRFC,NSE:KARURVYSYA,NSE:NATIONALUM,NSE:NETWORK18,NSE:NIACL,NSE:NLCINDIA,NSE:PCBL,NSE:PFC,NSE:PNB,NSE:PNCINFRA,NSE:RVNL,NSE:SAIL,NSE:SJVN,NSE:TTML,NSE:UNIONBANK,NSE:USHAMART,NSE:VAIBHAVGBL,NSE:WELSPUNLIV,NSE:ZEEL,NSE:ZOMATO,",
+ title="Paste Symbols", tooltip=tt_is, group=g_tb)
+
+string i_scr_direction = input.string(defval='Both', title='Direction', options=['Both', 'Bullish', 'Bearish'], inline='tb_1', group=g_tb)
+bool i_scr_show_bull  = input.bool(defval=true, title='Only Bullish', inline='tb_2', group=g_tb)
+bool i_scr_show_bear  = input.bool(defval=true, title='Only Bearish', inline='tb_2', group=g_tb)
+
+int i_tbl_disp_rows = input.int(defval=16, title='Display Rows', minval=0, maxval=100, group=g_tb)
+string i_tbl_position = input.string(defval=position.bottom_left, title='Table Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.small, title='Table Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+
+//_____________________________ Menu Screener End
+
+//____________________________ Menu Pivot High Low Start
+
+g_phl_eq = '███████████████ Equal High Low ███████████████'
+int i_phl_1_left = input.int(defval=60, title='Left', group=g_phl_eq)
+int i_phl_1_right = input.int(defval=30, title='Right', group=g_phl_eq)
+tt_eq = "Lower values mean highs and lows are closer."
+float i_phl_eq_percent = input.float(defval=0.05, minval=0, step=0.01, title='Equal HL %', tooltip=tt_eq, group=g_phl_eq) 
+string i_phl_1_source = input.string(defval='High/Low', title='Source', options=['High/Low', 'Open/Close'], group=g_phl_eq)
+color i_phl_1_h_ln_color = input.color(defval=#F7525F, title='Bearish Color', group=g_phl_eq)
+color i_phl_1_l_ln_color = input.color(defval=#22AB94, title='Bullish Color', group=g_phl_eq)
+color i_phl_txt_color = input.color(defval=#B2B5BE, title='Neutral Color', group=g_phl_eq)
+int i_phl_eq_transp = input.int(defval=25, minval=0, title='Transparency', group=g_phl_eq) 
+
+//____________________________ Menu Pivot High Low End
+
+//____________________________ Equal High Low Start
+
+// Get Source
+float _high = i_phl_1_source == 'Open/Close' ? math.max(open, close) : high
+float _low = i_phl_1_source == 'Open/Close' ? math.min(open, close) : low
+
+// Arrays to store the last 2 pivot highs and lows
+var float[] ph_arr = array.new_float(2)
+var int[] ph_bi_arr = array.new_int(2)
+var float[] pl_arr = array.new_float(2)
+var int[] pl_bi_arr = array.new_int(2)
+
+// Pivot calculations
+int prev_ph_bi = na, int prev_pl_bi = na
+bool ph = false, bool pl = false
+
+phl_1_ph = ta.pivothigh(_high, i_phl_1_left, i_phl_1_right)
+phl_1_pl = ta.pivotlow(_low, i_phl_1_left, i_phl_1_right)
+
+// Update the arrays with the last 2 pivot highs and lows
+if not na(phl_1_ph)
+    ph := true
+    prev_ph_bi := bar_index - i_phl_1_right
+    array.unshift(ph_bi_arr, bar_index)
+    array.pop(ph_bi_arr)
+
+if not na(phl_1_pl)
+    pl := true
+    prev_pl_bi := bar_index - i_phl_1_right
+    array.unshift(pl_bi_arr, bar_index)
+    array.pop(pl_bi_arr)
+
+// Function to update the arrays with the last 2 values
+update_arrays(value, array_ref) =>
+    array.unshift(array_ref, value)
+    array.pop(array_ref)
+
+// Update arrays with the last 2 pivot highs and lows
+if ph
+    update_arrays(phl_1_ph, ph_arr)
+if pl
+    update_arrays(phl_1_pl, pl_arr)
+
+// Get last two pivot highs and lows
+ph_price_0 = array.get(ph_arr, 0), ph_price_1 = array.get(ph_arr, 1)
+ph_bi_0 = array.get(ph_bi_arr, 0), ph_bi_1 = array.get(ph_bi_arr, 1)
+
+pl_price_0 = array.get(pl_arr, 0), pl_price_1 = array.get(pl_arr, 1)
+pl_bi_0 = array.get(pl_bi_arr, 0), pl_bi_1 = array.get(pl_bi_arr, 1)
+
+// Function to calculate percentage change
+pchg(price_1, price_2) =>
+    change = price_1 - price_2
+    percent_change = math.abs((change / price_2) * 100)
+    percent_change
+
+// Calculate percentage change between the last two pivot highs and lows
+var float ph_pchg = na
+var float pl_pchg = na
+
+if array.size(ph_arr) >= 2
+    ph_pchg := pchg(array.get(ph_arr, 0), array.get(ph_arr, 1))
+
+if array.size(pl_arr) >= 2
+    pl_pchg := pchg(array.get(pl_arr, 0), array.get(pl_arr, 1))
+
+// Draw Equals Box
+var levelBoxes_equal = array.new_box()
+
+ph_condition = ph and ph_pchg < i_phl_eq_percent and barstate.isconfirmed
+pl_condition = pl and pl_pchg < i_phl_eq_percent and barstate.isconfirmed
+
+if ph_condition
+    ph_box = box.new(left=ph_bi_1 - i_phl_1_right, top=ph_price_1, right=ph_bi_0 - i_phl_1_right, bottom=ph_price_0, border_color=color.new(i_phl_1_h_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_1_h_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, ph_box)
+
+if pl_condition
+    pl_box = box.new(left=pl_bi_1 - i_phl_1_right, top=pl_price_1, right=pl_bi_0 - i_phl_1_right, bottom=pl_price_0, border_color=color.new(i_phl_1_l_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_1_l_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, pl_box)
+
+// Plot Equal Labels
+plotshape(ph_condition ? high[i_phl_1_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_1_right, color=color.new(i_phl_1_h_ln_color, i_phl_eq_transp), size=size.small)
+plotshape(pl_condition ? low[i_phl_1_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_1_right, color=color.new(i_phl_1_l_ln_color, i_phl_eq_transp), size=size.small)
+
+//____________________________ Equal High Low End
+
+//____________________________ Get Symbols for Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'allanster'
+// Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
+// Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
+
+feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
+    loop  = back                                          // declare string variable to hold content list
+    getT  = string(na)                                    // declare string variable to hold tickerid
+    if str.length(loop) == 0                              // if list is empty
+        getT := string(na)                                // assign na to tickerid variable
+        loop := string(na)                                // assign na to list of ticker Ids variable
+    else                                                  // else extract first tickerid
+        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
+        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
+    [getT, loop]                                          // return tickerid in first position & truncated list
+
+[tid_001, out_001] = feed(i_symbols), [tid_002, out_002] = feed(out_001), [tid_003, out_003] = feed(out_002), [tid_004, out_004] = feed(out_003),
+[tid_005, out_005] = feed(out_004), [tid_006, out_006] = feed(out_005), [tid_007, out_007] = feed(out_006), [tid_008, out_008] = feed(out_007),
+[tid_009, out_009] = feed(out_008), [tid_010, out_010] = feed(out_009), [tid_011, out_011] = feed(out_010), [tid_012, out_012] = feed(out_011),
+[tid_013, out_013] = feed(out_012), [tid_014, out_014] = feed(out_013), [tid_015, out_015] = feed(out_014), [tid_016, out_016] = feed(out_015),
+[tid_017, out_017] = feed(out_016), [tid_018, out_018] = feed(out_017), [tid_019, out_019] = feed(out_018), [tid_020, out_020] = feed(out_019),
+[tid_021, out_021] = feed(out_020), [tid_022, out_022] = feed(out_021), [tid_023, out_023] = feed(out_022), [tid_024, out_024] = feed(out_023),
+[tid_025, out_025] = feed(out_024), [tid_026, out_026] = feed(out_025), [tid_027, out_027] = feed(out_026), [tid_028, out_028] = feed(out_027),
+[tid_029, out_029] = feed(out_028), [tid_030, out_030] = feed(out_029), [tid_031, out_031] = feed(out_030), [tid_032, out_032] = feed(out_031),
+[tid_033, out_033] = feed(out_032), [tid_034, out_034] = feed(out_033), [tid_035, out_035] = feed(out_034), [tid_036, out_036] = feed(out_035),
+[tid_037, out_037] = feed(out_036), [tid_038, out_038] = feed(out_037), [tid_039, out_039] = feed(out_038), [tid_040, out_040] = feed(out_039)
+
+//____________________________ Get Symbols for Screener End
+
+// _____________________________ Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'MUQWISHI'
+// Indicator Title: 'Candlestick Patterns Screener [By MUQWISHI]'
+// Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
+
+// Screener Conditions
+bullish_cond = ph_condition
+bearish_cond = pl_condition
+
+// Define Bull and Bear Conditions
+bull = not(i_scr_direction == "Bearish")
+bear = not(i_scr_direction == "Bullish")
+
+// Function for Screener Indicator Calculation
+indicator_calculation() =>
+    // Initialize variables
+    price = float(na)
+    _time = int(na)
+    indicator = ""
+    signal = int(na) 
+
+    if barstate.isconfirmed
+        // Check for Bearish Momentum Candle and conditions (Modify here to customize indicators)
+        if i_scr_show_bull and bearish_cond and bear 
+            indicator := "L"
+            signal := -1
+
+        // Check for Bullish Momentum Candle and conditions (Modify here to customize indicators)
+        else if i_scr_show_bear and bullish_cond and bull
+            indicator := "H"
+            signal := 1
+
+        // Update price and time if signal is not null
+        if not na(signal)
+            price := math.round_to_mintick(close)
+            _time := time
+
+    [_time, indicator, price, signal]
+
+// Function to format time
+format_time(x) =>
+    timezone = syminfo.timezone
+    timeframe.isintraday ? str.format_time(x, "HH:mm  dd-MM-yyyy", timezone) : str.format_time(x, "dd-MM-yyyy", timezone)
+
+// Function to extract symbol name
+symbol(s) => 
+    array.get(str.split(s, ":"), 1)
+
+// Matrix setup
+var matrix = matrix.new<string>(0, 5, na)
+
+// Function to add rows to the matrix
+mtxFun(symbol, _time, indicator, price, signal) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, indicator, price, signal))
+
+// Screener function to collect data
+screener(s) =>
+    sym = ticker.modify(s, syminfo.session)
+    [_time, indicator, price, signal] = request.security(sym, timeframe.period, indicator_calculation())
+
+    // Check if the signal is not na and the time matches
+    if not na(signal) and _time == time
+        symbolName = symbol(s)
+        formattedTime = format_time(_time)
+        strPrice = str.tostring(price)
+        strSignal = str.tostring(signal)
+        
+        // Add data to the matrix
+        mtxFun(symbolName, formattedTime, indicator, strPrice, strSignal)
+
+// Call Screener function for multiple symbols
+screener(tid_001), screener(tid_002), screener(tid_003), screener(tid_004), screener(tid_005), screener(tid_006), screener(tid_007),
+screener(tid_008), screener(tid_009), screener(tid_010), screener(tid_011), screener(tid_012), screener(tid_013), screener(tid_014),
+screener(tid_015), screener(tid_016), screener(tid_017), screener(tid_018), screener(tid_019), screener(tid_020), screener(tid_021),
+screener(tid_022), screener(tid_023), screener(tid_024), screener(tid_025), screener(tid_026), screener(tid_027), screener(tid_028),
+screener(tid_029), screener(tid_030), screener(tid_031), screener(tid_032), screener(tid_033), screener(tid_034), screener(tid_035),
+screener(tid_036), screener(tid_037), screener(tid_038), screener(tid_039), screener(tid_040)
+
+// Trim excess rows in the matrix
+if matrix.rows(matrix) > i_tbl_disp_rows
+    while matrix.rows(matrix) > i_tbl_disp_rows
+        matrix.remove_row(matrix, matrix.rows(matrix)-1)
+
+// Plot Table
+// Create table with specified properties
+var table tbl = table.new(position=i_tbl_position, columns=4, rows=102, border_width=1)
+
+// Function to populate cells in the table
+cell(col, row, txt, color) => 
+    table.cell(tbl, col, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 90), text_size=i_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast
+    // Clear existing data in the table
+    table.clear(tbl, 0, 0, 3, 101)
+
+    // Set headers for the table
+    cell(0, 0, "Symbol", i_phl_txt_color)
+    cell(1, 0, "Time",   i_phl_txt_color)
+    cell(2, 0, "Dir" ,  i_phl_txt_color)
+    cell(3, 0, "Price",  i_phl_txt_color)
+
+    j = 1
+    // Populate table with matrix data
+    if matrix.rows(matrix) > 0
+        for i = 0 to matrix.rows(matrix) - 1
+            // Determine color based on the signal
+            col = matrix.get(matrix, i, 4) ==  "1" ? i_phl_1_h_ln_color :
+                  matrix.get(matrix, i, 4) == "-1" ? i_phl_1_l_ln_color : i_phl_txt_color
+
+            // Populate cells in the table
+            cell(0, j, matrix.get(matrix, i, 0), col)
+            cell(1, j, matrix.get(matrix, i, 1), col)
+            cell(2, j, matrix.get(matrix, i, 2), col)
+            cell(3, j, matrix.get(matrix, i, 3), col)
+
+            j += 1
+
+// _____________________________ Screener End
+
+// _____________________________ Code End
