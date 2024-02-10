@@ -1,0 +1,652 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+i_max_bars_back = 4999
+indicator(title="ICT External and Internal Range Liquidity Multi-timeframe", shorttitle="ICT Liquidity", overlay=true, max_bars_back=i_max_bars_back, max_lines_count=500, max_labels_count=500)
+
+//____________________________ ICT Fair Value Gap (FVG) Multi-timeframe Start
+
+// Acknowledgement & Reference
+// Trader: "fadizeidan"
+// Indicator Title: "ICT HTF FVGs (fadi)"
+// Indicator Link: "https://www.tradingview.com/script/Cti9P1Ww-ICT-HTF-FVGs-fadi/"
+
+//____________________________ Types
+
+type Settings 
+    bool    CE_show
+    string  CE_style
+    bool    Border_show
+    bool    mitigated_show
+    string  mitigated_type
+    color   mitigated_color_bull
+    color   mitigated_color_bear
+    bool    ltf_hide
+    bool    text_show
+    color   label_color
+    color   label_bgcolor
+    string  label_size
+    int     padding
+    int     buffer
+    int     bgcolor_transp
+    int     color_transp
+    string  text_size
+
+type Imbalance_Settings
+    bool    show
+    string  htf
+    color   color_bull
+    color   color_bear
+    int     max_count
+
+type Imbalance
+    int     open_time
+    int     close_time
+    float   open
+    float   middle
+    float   close
+    bool    mitigated
+    int     mitigated_time
+    line    line_middle
+    label   lbl
+    box     box
+
+type ImbalanceStructure
+    Imbalance[]         imbalance
+    Imbalance_Settings  settings
+
+type Helper
+    string name         = "Helper"
+
+//____________________________ Settings                                                                                             ---+//
+
+Settings_Group                      = "Global Settings"
+
+Settings settings                   = Settings.new()
+Imbalance_Settings htf_1_Settings   = Imbalance_Settings.new()
+Imbalance_Settings htf_2_Settings   = Imbalance_Settings.new()
+Imbalance_Settings htf_3_Settings   = Imbalance_Settings.new()
+
+//____________________________ Menu Fair Value Gap Start
+
+g_fvg = "██████████ Internal Range Liquidity (FVG) ██████████"
+
+htf_1_Settings.show         := input.bool(defval=true, title="", inline="htf1", group=g_fvg)
+htf_1                        = input.timeframe("", title="", inline="htf1", group=g_fvg)
+htf_1_Settings.htf          := htf_1
+htf_1_Settings.color_bull   := input.color(defval=color.green, title="", inline="htf1", group=g_fvg)
+htf_1_Settings.color_bear   := input.color(defval=color.yellow, title="", inline="htf1", group=g_fvg)
+htf_1_Settings.max_count    := input.int(defval=20, title="", inline="htf1", group=g_fvg)
+
+htf_2_Settings.show         := input.bool(defval=true, title="", inline="htf2", group=g_fvg)
+htf_2                        = input.timeframe("5", title="", inline="htf2", group=g_fvg)
+htf_2_Settings.htf          := htf_2
+htf_2_Settings.color_bull   := input.color(defval=color.aqua, title="", inline="htf2", group=g_fvg)
+htf_2_Settings.color_bear   := input.color(defval=color.orange, title="", inline="htf2", group=g_fvg)
+htf_2_Settings.max_count    := input.int(defval=20, title="", inline="htf2", group=g_fvg)
+
+htf_3_Settings.show         := input.bool(defval=true, title="", inline="htf3", group=g_fvg)
+htf_3                        = input.timeframe("15", title="", inline="htf3", group=g_fvg)
+htf_3_Settings.htf          := htf_3
+htf_3_Settings.color_bull   := input.color(defval=color.blue, title="", inline="htf3", group=g_fvg)
+htf_3_Settings.color_bear   := input.color(defval=color.red, title="", inline="htf3", group=g_fvg)
+htf_3_Settings.max_count    := input.int(defval=20, title="", inline="htf3", group=g_fvg)
+
+settings.ltf_hide               := input.bool(defval=true, title="Hide Lower Timeframes", group=g_fvg)
+
+g_f = "███ Filled Settings"
+settings.mitigated_show         := input.bool(defval=true, title="Display Filled", group=g_f)
+settings.mitigated_type         := input.string(defval='50% Wick Fill', title='Filling Method', options = ['None', 'Wick Fill', 'Body Fill', '50% Wick Fill', '50% Body Fill'], group=g_f)
+settings.mitigated_color_bull   := input.color(defval=color.white, title="Color Support", group=g_f)
+settings.mitigated_color_bear   := input.color(defval=color.white, title="Color Resistance", group=g_f)
+
+g_bx = "███ Box Settings"
+settings.bgcolor_transp         := input.int(defval=90, title="Box Transparency", group=g_bx)
+settings.padding                := input.int(defval=4, title="Offset", minval=0, group=g_bx)
+tt_fvg_s = "Spacing Between Timeframes"
+settings.buffer                 := input.int(defval=6, title="Spacing", minval=0, tooltip=tt_fvg_s, group=g_bx)
+
+g_50 = "███ 50% Line Settings"
+settings.CE_show                := input.bool(defval=true, title="Display 50%", group=g_50)
+settings.CE_style               := input.string(defval=line.style_dashed, title='Line Style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_50)
+settings.color_transp           := input.int(defval=0, title="Line Transparency", group=g_50)
+
+g_txt = "███ Text Settings"
+settings.text_show              := input.bool(defval=true, title="Display Text", group=g_txt)
+settings.text_size              := input.string(defval=size.auto, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_txt)
+
+//____________________________ Menu Fair Value Gap End
+
+//____________________________ Variables
+
+color color_transparent             = #00000000
+
+Helper helper                       = Helper.new()
+
+var ImbalanceStructure FVG_1        = ImbalanceStructure.new()
+var ImbalanceStructure FVG_2        = ImbalanceStructure.new()
+var ImbalanceStructure FVG_3        = ImbalanceStructure.new()
+
+var Imbalance[] FVGs_1              = array.new<Imbalance>()
+var Imbalance[] FVGs_2              = array.new<Imbalance>()
+var Imbalance[] FVGs_3              = array.new<Imbalance>()
+
+FVG_1.imbalance                     := FVGs_1
+FVG_1.settings                      := htf_1_Settings
+FVG_2.imbalance                     := FVGs_2
+FVG_2.settings                      := htf_2_Settings
+FVG_3.imbalance                     := FVGs_3
+FVG_3.settings                      := htf_3_Settings
+
+// Used internally for padding
+var int TF_1        = 0
+var int TF_2        = 0
+var int TF_3        = 0
+
+var float daily     = 0
+var float monthly   = 0
+
+//____________________________ Methods
+
+method Gethtftext(Helper helper, string htf) =>
+    helper.name := htf
+
+    formatted = htf
+    seconds = timeframe.in_seconds(htf)
+
+    if seconds < 60
+        formatted := str.tostring(seconds) + "s\n\n"
+    else if (seconds / 60) < 60
+        formatted := str.tostring((seconds/60)) + "m\n\n"
+    else if (seconds/60/60) < 24
+        formatted := str.tostring((seconds/60/60)) + "H\n\n"
+    
+    formatted
+
+method Validtimeframe(Helper helper, tf) =>
+    helper.name := tf
+    n1 = timeframe.in_seconds()
+    n2 = timeframe.in_seconds(tf)
+
+    n1 < n2
+
+method ProximityRange(Helper helper, tf) =>
+    helper.name := tf
+    float range_high    = 0
+    float range_low   = 0
+    if timeframe.isseconds or timeframe.isminutes
+        range_high := close + daily
+        range_low  := close - daily
+    if timeframe.isdaily
+        range_high := close + monthly*3
+        range_low  := close - monthly*3
+    if timeframe.isweekly
+        range_high := close + monthly*12
+        range_low  := close - monthly*12
+
+    [range_low, range_high]
+
+//____________________________ Imbalances Methods
+
+// AddZone is used to display and manage imbalance related boxes
+method AddZone(ImbalanceStructure IS, Imbalance imb, int step) =>
+    bool visible = true
+    if IS.settings.show
+        int buffer = time+((time-time[1])*(settings.padding+1+(settings.buffer*(step-1)))) 
+
+        if na(imb.box)
+            _bgcolor = imb.open < imb.close ? color.new(IS.settings.color_bull, settings.bgcolor_transp) : color.new(IS.settings.color_bear, settings.bgcolor_transp)
+            _text = helper.Gethtftext(IS.settings.htf)
+            _text_color = settings.text_show ? _bgcolor : na   
+            imb.box := box.new(imb.open_time, imb.open, buffer, imb.close, _bgcolor, bgcolor = _bgcolor, xloc=xloc.bar_time, text=_text, text_size=settings.text_size, text_color=_text_color, text_halign=text.align_center, text_valign=text.align_center)
+
+            if settings.CE_show
+                _line_color = imb.open < imb.close ? color.new(IS.settings.color_bull, settings.color_transp) : color.new(IS.settings.color_bear, settings.color_transp)
+                imb.line_middle := line.new(imb.open_time, imb.middle, buffer, imb.middle, xloc=xloc.bar_time, style=settings.CE_style, color=_line_color)
+        else
+            box.set_right(imb.box, imb.mitigated ? imb.mitigated_time : buffer)
+            mitigated_text_color = imb.open < imb.close ? imb.mitigated ? color.new(settings.mitigated_color_bull, settings.bgcolor_transp) : color.new(IS.settings.color_bull, settings.bgcolor_transp) : imb.mitigated ? color.new(settings.mitigated_color_bear, settings.bgcolor_transp) : color.new(IS.settings.color_bear, settings.bgcolor_transp)
+            box.set_bgcolor(imb.box, mitigated_text_color)
+            box.set_border_color(imb.box, mitigated_text_color)
+            box.set_text_color(imb.box, settings.text_show ? mitigated_text_color : na)
+            line.set_color(imb.line_middle, imb.open < imb.close ? imb.mitigated ? color.new(settings.mitigated_color_bull, settings.bgcolor_transp) : color.new(IS.settings.color_bull, settings.color_transp) : imb.mitigated ? color.new(settings.mitigated_color_bear, settings.bgcolor_transp) : color.new(IS.settings.color_bear, settings.color_transp))
+
+            if settings.CE_show
+                line.set_x2(imb.line_middle, imb.mitigated ? imb.mitigated_time : buffer)
+
+        if imb.mitigated and not settings.mitigated_show
+            if not na(imb.box)
+                box.delete(imb.box)
+                line.delete(imb.line_middle)
+                visible := false
+    visible
+
+// AddImbalance adds a newly discovered imbalance. this applies for both FVG and Volume Imbalance
+method AddImbalance(ImbalanceStructure IS, float o, float c, int o_time) =>
+    Imbalance imb = Imbalance.new()
+    imb.open_time           := o_time
+    imb.open                := o
+    imb.middle              := (o+c)/2
+    imb.close               := c
+
+    IS.imbalance.unshift(imb)
+    //IS.AddZone(imb)
+
+    if IS.imbalance.size() > 100 //IS.settings.max_count
+        temp = IS.imbalance.pop()
+        if not na(temp.box)
+            box.delete(temp.box)
+            line.delete(temp.line_middle)
+            label.delete(temp.lbl)
+    IS
+
+// CheckMitigated checks if the imbalance has been mitigated based on the settings
+method CheckMitigated(ImbalanceStructure IS, o, h, l, c) =>
+    if IS.imbalance.size() > 0
+        for i = IS.imbalance.size() - 1 to 0
+            imb = IS.imbalance.get(i)
+
+            if not imb.mitigated
+                switch settings.mitigated_type
+                    "None" =>
+                        imb.mitigated       := false
+                    'Wick Fill' =>
+                        imb.mitigated       := imb.open <= imb.close ? low <= imb.open : high >= imb.open
+                    'Body Fill' =>
+                        imb.mitigated       := imb.open < imb.close ? math.min(o, c) <= imb.open : math.max(o, c) >= imb.open
+                    '50% Wick Fill' =>
+                        imb.mitigated       := imb.open <= imb.close ? low <= imb.middle : high >= imb.middle
+                    '50% Body Fill' =>
+                        imb.mitigated       := imb.open <= imb.close ? math.min(o, c) <= imb.middle : math.max(o, c) >= imb.middle
+                if imb.mitigated
+                    if not settings.mitigated_show
+                        if not na(imb.box)
+                            box.delete(imb.box)
+                            line.delete(imb.line_middle)
+                            label.delete(imb.lbl)
+                        IS.imbalance.remove(i)
+                    else
+                        imb.mitigated_time  := time
+    IS
+
+method AdjustMargins(ImbalanceStructure IS, int step) =>
+    int count = 0
+    if IS.imbalance.size() > 0
+        int buffer = time+((time-time[1])*(settings.padding+1+(settings.buffer*(step-1))))
+        
+        [rl, rh] = helper.ProximityRange(IS.settings.htf)
+
+        for i = 0 to IS.imbalance.size() - 1
+            imb = IS.imbalance.get(i)
+            if ((math.max(imb.open, imb.close) > rl) and (math.min(imb.open, imb.close) < rh)) and count < IS.settings.max_count
+                if IS.AddZone(imb, step)
+                    count := count+1
+            else
+                if not na(imb.box)
+                    box.delete(imb.box)
+                    label.delete(imb.lbl)
+                    line.delete((imb.line_middle))
+    IS
+
+// FindImbalance looks for imbalances and, if found, adds it to the list
+method FindImbalance(ImbalanceStructure IS, o, h, l, c, t, o1, h1, l1, c1, t1, o2, h2, l2, c2, t2) =>
+    if IS.settings.show and (h < l2 or l > h2) 
+        o = h < l2 ? l2 : h2
+        c = h < l2 ? h : l
+        if IS.imbalance.size() == 0 
+            IS.AddImbalance(o, c, t2)
+        else
+            if IS.imbalance.first().open_time < t2
+                IS.AddImbalance(o, c, t2)
+    IS
+
+method Process(ImbalanceStructure IS, float o, float h, float l, float c, int t, float o1, float h1, float l1, float c1, int t1, float o2, float h2, float l2, float c2, int t2) =>
+    var int visible = 0
+    if IS.settings.show
+        if not settings.ltf_hide or (settings.ltf_hide and helper.Validtimeframe(IS.settings.htf))
+            if IS.settings.show
+                IS.FindImbalance(o, h, l, c, t, o1, h1, l1, c1, t1, o2, h2, l2, c2, t2)
+                visible := 1
+        IS.CheckMitigated(o, h, l, c)
+    visible
+
+//____________________________ Main call to start the process
+
+daily                                   := request.security(syminfo.tickerid, "1D", ta.atr(14))
+monthly                                 := request.security(syminfo.tickerid, "1M", ta.atr(14))
+
+[o_1, h_1, l_1, c_1, t_1]               = request.security(syminfo.tickerid, htf_1, [open[1], high[1], low[1], close[1], time[1]])
+[o1_1, h1_1, l1_1, c1_1, t1_1]          = request.security(syminfo.tickerid, htf_1, [open[2], high[2], low[2], close[2], time[2]])
+[o2_1, h2_1, l2_1, c2_1, t2_1]          = request.security(syminfo.tickerid, htf_1, [open[3], high[3], low[3], close[3], time[3]])
+TF_1 := FVG_1.Process(o_1, h_1, l_1, c_1, t_1, o1_1, h1_1, l1_1, c1_1, t1_1, o2_1, h2_1, l2_1, c2_1, t2_1)
+FVG_1.AdjustMargins(TF_1)
+
+[o_2, h_2, l_2, c_2, t_2]               = request.security(syminfo.tickerid, htf_2, [open[1], high[1], low[1], close[1], time[1]])
+[o1_2, h1_2, l1_2, c1_2, t1_2]          = request.security(syminfo.tickerid, htf_2, [open[2], high[2], low[2], close[2], time[2]])
+[o2_2, h2_2, l2_2, c2_2, t2_2]          = request.security(syminfo.tickerid, htf_2, [open[3], high[3], low[3], close[3], time[3]])
+TF_2 := TF_1 + FVG_2.Process(o_2, h_2, l_2, c_2, t_2, o1_2, h1_2, l1_2, c1_2, t1_2, o2_2, h2_2, l2_2, c2_2, t2_2)
+FVG_2.AdjustMargins(TF_2)
+
+[o_3, h_3, l_3, c_3, t_3]               = request.security(syminfo.tickerid, htf_3, [open[1], high[1], low[1], close[1], time[1]])
+[o1_3, h1_3, l1_3, c1_3, t1_3]          = request.security(syminfo.tickerid, htf_3, [open[2], high[2], low[2], close[2], time[2]])
+[o2_3, h2_3, l2_3, c2_3, t2_3]          = request.security(syminfo.tickerid, htf_3, [open[3], high[3], low[3], close[3], time[3]])
+TF_3 := TF_2 + FVG_3.Process(o_3, h_3, l_3, c_3, t_3, o1_3, h1_3, l1_3, c1_3, t1_3, o2_3, h2_3, l2_3, c2_3, t2_3)
+FVG_3.AdjustMargins(TF_3)
+
+//____________________________ ICT Fair Value Gap (FVG) Multi-timeframe End
+
+
+//____________________________ ICT Pivot High Low Multi-timeframe Start
+
+//____________________________ Menu Pivot High Low Start
+
+g_phl_qd = "█████████ External Range Liquidity (Swings) █████████"
+bool i_phl_1_show = input.bool(defval=true, title='Pivot High Low 1', group=g_phl_qd)
+bool i_phl_2_show = input.bool(defval=true, title='Pivot High Low 2', group=g_phl_qd)
+bool i_phl_3_show = input.bool(defval=true, title='Pivot High Low 3', group=g_phl_qd)
+bool i_phl_eq_show = input.bool(defval=true, title='Equal Pivot High Low', group=g_phl_qd)
+
+g_phl_co = "███ Common Settings"
+string i_phl_1_source = input.string(defval='High/Low', title='Source', options=['High/Low', 'Open/Close'], group=g_phl_co)
+
+g_phl_1 = "███ Pivot High Low 1"
+string i_phl_1_tf = input.timeframe(defval="15", title='Timeframe', group=g_phl_1)
+int i_phl_1_left = input.int(defval=2, title='Left', group=g_phl_1)
+int i_phl_1_right = input.int(defval=2, title='Right', group=g_phl_1)
+int i_phl_1_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_1)
+bool i_phl_1_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_1)
+color i_phl_1_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_1)
+color i_phl_1_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_1)
+string i_phl_1_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_1)
+int i_phl_1_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_1)
+bool i_phl_1_lbl_show = input.bool(defval=false, title='Label', group=g_phl_1)
+
+g_phl_2 = "███ Pivot High Low 2"
+string i_phl_2_tf = input.timeframe(defval="60", title='Timeframe', group=g_phl_2)
+int i_phl_2_left = input.int(defval=2, title='Left', group=g_phl_2)
+int i_phl_2_right = input.int(defval=2, title='Right', group=g_phl_2)
+int i_phl_2_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_2)
+bool i_phl_2_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_2)
+color i_phl_2_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_2)
+color i_phl_2_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_2)
+string i_phl_2_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_2)
+int i_phl_2_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_2)
+bool i_phl_2_lbl_show = input.bool(defval=false, title='Label', group=g_phl_2)
+
+g_phl_3 = "███ Pivot High Low 3"
+string i_phl_3_tf = input.timeframe(defval="240", title='Timeframe', group=g_phl_3)
+int i_phl_3_left = input.int(defval=2, title='Left', group=g_phl_3)
+int i_phl_3_right = input.int(defval=2, title='Right', group=g_phl_3)
+int i_phl_3_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_3)
+bool i_phl_3_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_3)
+color i_phl_3_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_3)
+color i_phl_3_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_3)
+string i_phl_3_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_3)
+int i_phl_3_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_3)
+bool i_phl_3_lbl_show = input.bool(defval=false, title='Label', group=g_phl_3)
+
+g_phl_eq = "███ Equal High Low"
+int i_phl_eq_left = input.int(defval=60, title='Left', group=g_phl_eq)
+int i_phl_eq_right = input.int(defval=30, title='Right', group=g_phl_eq)
+tt_eq = "Lower values mean highs and lows are closer."
+float i_phl_eq_percent = input.float(defval=0.05, minval=0, step=0.01, title='Equal HL %', tooltip=tt_eq, group=g_phl_eq) 
+color i_phl_eq_h_ln_color = input.color(defval=#F7525F, title='Bearish Color', group=g_phl_eq)
+color i_phl_eq_l_ln_color = input.color(defval=#22AB94, title='Bullish Color', group=g_phl_eq)
+int i_phl_eq_transp = input.int(defval=25, minval=0, title='Transparency', group=g_phl_eq) 
+
+//____________________________ Menu Pivot High Low End
+
+//____________________________ Pivot High Low Common Functions Start
+
+// Acknowledgement & Reference
+// Trader: "lmatl"
+// Indicator Title: "Pivot mtf semaphore support&resistance [LM]"
+// Indicator Link: "https://www.tradingview.com/script/OZDSeSQd-Pivot-mtf-semaphore-support-resistance-LM/"
+
+f_offsetToP(_src, _pivotPrice, _maxBack) =>
+    int _offset = na
+    float _delta = 10e10
+    if not na(_pivotPrice)
+        for _i = 1 to _maxBack by 1
+            _thisDelta = math.abs(_src[_i] - _pivotPrice)
+            if _thisDelta < _delta
+                _delta := _thisDelta
+                _offset := _i
+                _offset
+    _offset
+
+f_resInMinutes() =>
+    _resInMinutes = timeframe.multiplier * (timeframe.isseconds ? 1. / 60. : timeframe.isminutes ? 1. : timeframe.isdaily ? 1440. : timeframe.isweekly ? 10080. : timeframe.ismonthly ? 43800. : na)
+    _resInMinutes
+
+f_tfResInMinutes(_resolution) =>
+    request.security(syminfo.tickerid, _resolution, f_resInMinutes())
+
+f_extendArray(_lineArray, _labelArray, _extendLines) =>
+    if array.size(_lineArray) > 0
+        for _i = array.size(_lineArray) - 1 to 0 by 1
+
+            x2 = line.get_x2(array.get(_lineArray, _i))
+            yValue = line.get_y1(array.get(_lineArray, _i))
+
+            if _extendLines or bar_index - 1 == x2 and not(high > yValue and low < yValue)
+                line.set_x2(array.get(_lineArray, _i), bar_index)
+                label.set_x(array.get(_labelArray, _i), bar_index)
+            float(na)
+
+f_drawLine(_x1, _x2, _yValue, _lineColor, _lineThickness, _lineStyle) =>
+    line.new(x1=_x1, y1=_yValue, x2=_x2, y2=_yValue, color=_lineColor, style=_lineStyle, width=_lineThickness)
+
+f_drawLabel(label_show, _x, _y, _textColor) =>
+    if label_show
+        label.new(_x, _y, '      ' + str.tostring(_y), xloc.bar_index, yloc.price, #00000000, label.style_none, _textColor)
+
+f_drawPivotLineAndLabel(label_show, _x1, _x2, _yValue, _colorLine, _lineCount, _lineThickness, _lineStyle, _pivotArray, _labelArray) =>
+    line l = f_drawLine(_x1, _x2, _yValue, _colorLine, _lineThickness, _lineStyle)
+    label lab = f_drawLabel(label_show, _x1, _yValue, _colorLine)
+
+    if array.size(_pivotArray) == _lineCount
+        line.delete(array.shift(_pivotArray))
+        label.delete(array.shift(_labelArray))
+    array.push(_pivotArray, l)
+    array.push(_labelArray, lab)
+
+f_addLines(label_show, _htfPH, _htfPL, _offsetToPH, _offsetToPL, _newPH, _newPL, h_color, l_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray) =>
+    if _newPH
+        int x1 = bar_index - _offsetToPH
+        int x2 = bar_index
+        float yValue = _htfPH
+        f_drawPivotLineAndLabel(label_show, x1, x2, yValue, h_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray)
+        
+    if _newPL
+        int x1 = bar_index - _offsetToPL
+        int x2 = bar_index
+        float yValue = _htfPL
+        f_drawPivotLineAndLabel(label_show, x1, x2, yValue, l_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray)
+
+//____________________________ Pivot High Low Common Functions End
+
+// Common Calculations
+var res_in_minutes = f_resInMinutes()
+
+// Get Source
+float _high = i_phl_1_source == 'Open/Close' ? math.max(open, close) : high
+float _low = i_phl_1_source == 'Open/Close' ? math.min(open, close) : low
+
+//____________________________ Pivot High Low 1 Get Data & Draw Start
+
+// Arrays
+var phl_1_ln_arr = array.new_line(i_phl_1_showlast)
+var phl_1_lbl_arr = array.new_label(i_phl_1_showlast)
+
+// Get Data
+phl_1_bars_htf = int(f_tfResInMinutes(i_phl_1_tf) / res_in_minutes)
+phl_1_bars_offset = int(i_phl_1_left * phl_1_bars_htf)
+
+phl_1_ph = ta.pivothigh(_high, i_phl_1_left, i_phl_1_right)
+phl_1_pl = ta.pivotlow(_low, i_phl_1_left, i_phl_1_right)
+
+phl_1_ph_htf = request.security(syminfo.tickerid, i_phl_1_tf, phl_1_ph)
+phl_1_pl_htf = request.security(syminfo.tickerid, i_phl_1_tf, phl_1_pl)
+phl_1_ph_new = na(phl_1_ph_htf[1]) and not na(phl_1_ph_htf)
+phl_1_pl_new = na(phl_1_pl_htf[1]) and not na(phl_1_pl_htf)
+
+phl_1_ph_offset = f_offsetToP(_high, phl_1_ph_htf, math.min(i_max_bars_back, math.max(30, phl_1_bars_offset + phl_1_bars_htf + 1)))
+phl_1_pl_offset = f_offsetToP(_low, phl_1_pl_htf, math.min(i_max_bars_back, math.max(30, phl_1_bars_offset + phl_1_bars_htf + 1)))
+
+// Draw
+if i_phl_1_show and phl_1_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_1_lbl_show, phl_1_ph_htf, phl_1_pl_htf, phl_1_ph_offset, phl_1_pl_offset, phl_1_ph_new, phl_1_pl_new, i_phl_1_h_ln_color, i_phl_1_l_ln_color, i_phl_1_showlast, i_phl_1_ln_width, i_phl_1_ln_stye, phl_1_ln_arr, phl_1_lbl_arr)   
+
+if i_phl_1_show
+    f_extendArray(phl_1_ln_arr, phl_1_lbl_arr, i_phl_1_ln_extend)
+
+//____________________________ Pivot High Low 1 Get Data & Draw End
+
+//____________________________ Pivot High Low 2 Get Data & Draw Start
+
+// Arrays
+var phl_2_ln_arr = array.new_line(i_phl_2_showlast)
+var phl_2_lbl_arr = array.new_label(i_phl_2_showlast)
+
+// Get Data
+phl_2_bars_htf = int(f_tfResInMinutes(i_phl_2_tf) / res_in_minutes)
+phl_2_bars_offset = int(i_phl_2_left * phl_2_bars_htf)
+
+float phl_2_ph = ta.pivothigh(_high, i_phl_2_left, i_phl_2_right)
+float phl_2_pl = ta.pivotlow(_low, i_phl_2_left, i_phl_2_right)
+
+phl_2_ph_htf = request.security(syminfo.tickerid, i_phl_2_tf, phl_2_ph)
+phl_2_pl_htf = request.security(syminfo.tickerid, i_phl_2_tf, phl_2_pl)
+phl_2_ph_new = na(phl_2_ph_htf[1]) and not na(phl_2_ph_htf)
+phl_2_pl_new = na(phl_2_pl_htf[1]) and not na(phl_2_pl_htf)
+
+phl_2_ph_offset = f_offsetToP(_high, phl_2_ph_htf, math.min(i_max_bars_back, math.max(30, phl_2_bars_offset + phl_2_bars_htf + 1)))
+phl_2_pl_offset = f_offsetToP(_low, phl_2_pl_htf, math.min(i_max_bars_back, math.max(30, phl_2_bars_offset + phl_2_bars_htf + 1)))
+
+// Draw
+if i_phl_2_show and phl_2_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_2_lbl_show, phl_2_ph_htf, phl_2_pl_htf, phl_2_ph_offset, phl_2_pl_offset, phl_2_ph_new, phl_2_pl_new, i_phl_2_h_ln_color, i_phl_2_l_ln_color, i_phl_2_showlast, i_phl_2_ln_width, i_phl_2_ln_stye, phl_2_ln_arr, phl_2_lbl_arr)   
+
+if i_phl_2_show
+    f_extendArray(phl_2_ln_arr, phl_2_lbl_arr, i_phl_2_ln_extend)
+
+//____________________________ Pivot High Low 2 Get Data & Draw End
+
+//____________________________ Pivot High Low 3 Get Data & Draw Start
+
+// Arrays
+var phl_3_ln_arr = array.new_line(i_phl_3_showlast)
+var phl_3_lbl_arr = array.new_label(i_phl_3_showlast)
+
+// Get Data
+phl_3_bars_htf = int(f_tfResInMinutes(i_phl_3_tf) / res_in_minutes)
+phl_3_bars_offset = int(i_phl_3_left * phl_3_bars_htf)
+
+float phl_3_ph = ta.pivothigh(_high, i_phl_3_left, i_phl_3_right)
+float phl_3_pl = ta.pivotlow(_low, i_phl_3_left, i_phl_3_right)
+
+phl_3_ph_htf = request.security(syminfo.tickerid, i_phl_3_tf, phl_3_ph)
+phl_3_pl_htf = request.security(syminfo.tickerid, i_phl_3_tf, phl_3_pl)
+phl_3_ph_new = na(phl_3_ph_htf[1]) and not na(phl_3_ph_htf)
+phl_3_pl_new = na(phl_3_pl_htf[1]) and not na(phl_3_pl_htf)
+
+phl_3_ph_offset = f_offsetToP(_high, phl_3_ph_htf, math.min(i_max_bars_back, math.max(30, phl_3_bars_offset + phl_3_bars_htf + 1)))
+phl_3_pl_offset = f_offsetToP(_low, phl_3_pl_htf, math.min(i_max_bars_back, math.max(30, phl_3_bars_offset + phl_3_bars_htf + 1)))
+
+// Draw
+if i_phl_3_show and phl_3_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_3_lbl_show, phl_3_ph_htf, phl_3_pl_htf, phl_3_ph_offset, phl_3_pl_offset, phl_3_ph_new, phl_3_pl_new, i_phl_3_h_ln_color, i_phl_3_l_ln_color, i_phl_3_showlast, i_phl_3_ln_width, i_phl_3_ln_stye, phl_3_ln_arr, phl_3_lbl_arr)   
+
+if i_phl_3_show
+    f_extendArray(phl_3_ln_arr, phl_3_lbl_arr, i_phl_3_ln_extend)
+
+//____________________________ Pivot High Low 3 Get Data & Draw End
+
+//____________________________ Equal High Low Start
+
+phl_eq_ph = ta.pivothigh(_high, i_phl_eq_left, i_phl_eq_right)
+phl_eq_pl = ta.pivotlow(_low, i_phl_eq_left, i_phl_eq_right)
+
+i_phl_eq_tf = ""
+phl_eq_ph_htf = request.security(syminfo.tickerid, i_phl_eq_tf, phl_eq_ph)
+phl_eq_pl_htf = request.security(syminfo.tickerid, i_phl_eq_tf, phl_eq_pl)
+
+// Arrays to store the last 2 pivot highs and lows
+var float[] ph_arr = array.new_float(2)
+var int[] ph_bi_arr = array.new_int(2)
+var float[] pl_arr = array.new_float(2)
+var int[] pl_bi_arr = array.new_int(2)
+
+// Pivot calculations
+int prev_ph_bi = na, int prev_pl_bi = na
+bool active_ph = false, bool active_pl = false
+bool ph = false, bool pl = false
+
+// Update the arrays with the last 2 pivot highs and lows
+if not na(phl_eq_ph_htf)
+    ph := true
+    prev_ph_bi := bar_index - i_phl_eq_right
+    array.unshift(ph_bi_arr, bar_index)
+    array.pop(ph_bi_arr)
+
+if not na(phl_eq_pl_htf)
+    pl := true
+    prev_pl_bi := bar_index - i_phl_eq_right
+    array.unshift(pl_bi_arr, bar_index)
+    array.pop(pl_bi_arr)
+
+// Function to update the arrays with the last 2 values
+update_arrays(value, array_ref) =>
+    array.unshift(array_ref, value)
+    array.pop(array_ref)
+
+// Update arrays with the last 2 pivot highs and lows
+if ph
+    update_arrays(phl_eq_ph_htf, ph_arr)
+if pl
+    update_arrays(phl_eq_pl_htf, pl_arr)
+
+// Get last two pivot highs and lows
+ph_price_0 = array.get(ph_arr, 0), ph_price_1 = array.get(ph_arr, 1)
+ph_bi_0 = array.get(ph_bi_arr, 0), ph_bi_1 = array.get(ph_bi_arr, 1)
+
+pl_price_0 = array.get(pl_arr, 0), pl_price_1 = array.get(pl_arr, 1)
+pl_bi_0 = array.get(pl_bi_arr, 0), pl_bi_1 = array.get(pl_bi_arr, 1)
+
+// Function to calculate percentage change
+pchg(price_1, price_2) =>
+    change = price_1 - price_2
+    percent_change = math.abs((change / price_2) * 100)
+    percent_change
+
+// Calculate percentage change between the last two pivot highs and lows
+var float ph_pchg = na
+var float pl_pchg = na
+
+if array.size(ph_arr) >= 2
+    ph_pchg := pchg(array.get(ph_arr, 0), array.get(ph_arr, 1))
+
+if array.size(pl_arr) >= 2
+    pl_pchg := pchg(array.get(pl_arr, 0), array.get(pl_arr, 1))
+
+// Draw Equals Box
+var levelBoxes_equal=array.new_box()
+
+if i_phl_eq_show and ph and ph_pchg < i_phl_eq_percent
+    ph_box = box.new(left=ph_bi_1 - i_phl_eq_right, top=ph_price_1, right=ph_bi_0 - i_phl_eq_right, bottom=ph_price_0, border_color=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, ph_box)
+if i_phl_eq_show and pl and pl_pchg < i_phl_eq_percent
+    pl_box = box.new(left=pl_bi_1 - i_phl_eq_right, top=pl_price_1, right=pl_bi_0 - i_phl_eq_right, bottom=pl_price_0, border_color=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, pl_box)
+
+// Plot Equal Labels
+plotshape(i_phl_eq_show and pl and pl_pchg < i_phl_eq_percent ? low[i_phl_eq_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_eq_right, color=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp), size=size.small)
+plotshape(i_phl_eq_show and ph and ph_pchg < i_phl_eq_percent ? high[i_phl_eq_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_eq_right, color=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp), size=size.small)
+
+//____________________________ Equal High Low End
+
+//____________________________ ICT Pivot High Low Multi-timeframe End
+
+//____________________________ CODE END
