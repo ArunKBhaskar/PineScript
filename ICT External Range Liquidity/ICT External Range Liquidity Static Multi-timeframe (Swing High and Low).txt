@@ -1,0 +1,320 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+i_max_bars_back = 4999
+indicator(title='ICT External Range Liquidity Static Multi-timeframe (Swing High and Low)', shorttitle='ICT ERL', overlay=true, max_bars_back=i_max_bars_back, max_lines_count=500, max_labels_count=500)
+
+//____________________________ Menu Pivot High Low Start
+
+g_phl_qd = '███████████████ Quick On/Off ███████████████'
+bool i_phl_1_show = input.bool(defval=true, title='Pivot High Low 1', group=g_phl_qd)
+bool i_phl_2_show = input.bool(defval=true, title='Pivot High Low 2', group=g_phl_qd)
+bool i_phl_3_show = input.bool(defval=true, title='Pivot High Low 3', group=g_phl_qd)
+bool i_phl_eq_show = input.bool(defval=true, title='Equal Pivot High Low', group=g_phl_qd)
+
+g_phl_co = '██████████████ Common Settings ██████████████'
+string i_phl_1_source = input.string(defval='High/Low', title='Source', options=['High/Low', 'Open/Close'], group=g_phl_co)
+
+g_phl_1 = '██████████████ Pivot High Low 1 ██████████████'
+string i_phl_1_tf = input.timeframe(defval="15", title='Timeframe', group=g_phl_1)
+int i_phl_1_left = input.int(defval=2, title='Left', group=g_phl_1)
+int i_phl_1_right = input.int(defval=2, title='Right', group=g_phl_1)
+int i_phl_1_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_1)
+bool i_phl_1_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_1)
+color i_phl_1_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_1)
+color i_phl_1_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_1)
+string i_phl_1_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_1)
+int i_phl_1_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_1)
+bool i_phl_1_lbl_show = input.bool(defval=false, title='Label', group=g_phl_1)
+
+g_phl_2 = '██████████████ Pivot High Low 2 ██████████████'
+string i_phl_2_tf = input.timeframe(defval="60", title='Timeframe', group=g_phl_2)
+int i_phl_2_left = input.int(defval=2, title='Left', group=g_phl_2)
+int i_phl_2_right = input.int(defval=2, title='Right', group=g_phl_2)
+int i_phl_2_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_2)
+bool i_phl_2_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_2)
+color i_phl_2_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_2)
+color i_phl_2_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_2)
+string i_phl_2_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_2)
+int i_phl_2_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_2)
+bool i_phl_2_lbl_show = input.bool(defval=false, title='Label', group=g_phl_2)
+
+g_phl_3 = '██████████████ Pivot High Low 3 ██████████████'
+string i_phl_3_tf = input.timeframe(defval="240", title='Timeframe', group=g_phl_3)
+int i_phl_3_left = input.int(defval=2, title='Left', group=g_phl_3)
+int i_phl_3_right = input.int(defval=2, title='Right', group=g_phl_3)
+int i_phl_3_showlast = input.int(defval=2, title='Show Last', minval=0, group=g_phl_3)
+bool i_phl_3_ln_extend = input.bool(defval=false, title='Line Extend', group=g_phl_3)
+color i_phl_3_h_ln_color = input.color(defval=#F7525F, title='High Color', group=g_phl_3)
+color i_phl_3_l_ln_color = input.color(defval=#22AB94, title='Low Color', group=g_phl_3)
+string i_phl_3_ln_stye = input.string(defval=line.style_solid, title='Line style', options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_phl_3)
+int i_phl_3_ln_width = input.int(defval=2, title='Line Width', minval=1, group=g_phl_3)
+bool i_phl_3_lbl_show = input.bool(defval=false, title='Label', group=g_phl_3)
+
+g_phl_eq = '███████████████ Equal High Low ███████████████'
+int i_phl_eq_left = input.int(defval=60, title='Left', group=g_phl_eq)
+int i_phl_eq_right = input.int(defval=30, title='Right', group=g_phl_eq)
+tt_eq = "Lower values mean highs and lows are closer."
+float i_phl_eq_percent = input.float(defval=0.05, minval=0, step=0.01, title='Equal HL %', tooltip=tt_eq, group=g_phl_eq) 
+color i_phl_eq_h_ln_color = input.color(defval=#F7525F, title='Bearish Color', group=g_phl_eq)
+color i_phl_eq_l_ln_color = input.color(defval=#22AB94, title='Bullish Color', group=g_phl_eq)
+int i_phl_eq_transp = input.int(defval=25, minval=0, title='Transparency', group=g_phl_eq) 
+
+//____________________________ Menu Pivot High Low End
+
+
+//____________________________ Pivot High Low Common Functions Start
+
+// Acknowledgement & Reference
+// Trader: "lmatl"
+// Indicator Title: "Pivot mtf semaphore support&resistance [LM]"
+// Indicator Link: "https://www.tradingview.com/script/OZDSeSQd-Pivot-mtf-semaphore-support-resistance-LM/"
+
+f_offsetToP(_src, _pivotPrice, _maxBack) =>
+    int _offset = na
+    float _delta = 10e10
+    if not na(_pivotPrice)
+        for _i = 1 to _maxBack by 1
+            _thisDelta = math.abs(_src[_i] - _pivotPrice)
+            if _thisDelta < _delta
+                _delta := _thisDelta
+                _offset := _i
+                _offset
+    _offset
+
+f_resInMinutes() =>
+    _resInMinutes = timeframe.multiplier * (timeframe.isseconds ? 1. / 60. : timeframe.isminutes ? 1. : timeframe.isdaily ? 1440. : timeframe.isweekly ? 10080. : timeframe.ismonthly ? 43800. : na)
+    _resInMinutes
+
+f_tfResInMinutes(_resolution) =>
+    request.security(syminfo.tickerid, _resolution, f_resInMinutes())
+
+f_extendArray(_lineArray, _labelArray, _extendLines) =>
+    if array.size(_lineArray) > 0
+        for _i = array.size(_lineArray) - 1 to 0 by 1
+
+            x2 = line.get_x2(array.get(_lineArray, _i))
+            yValue = line.get_y1(array.get(_lineArray, _i))
+
+            if _extendLines or bar_index - 1 == x2 and not(high > yValue and low < yValue)
+                line.set_x2(array.get(_lineArray, _i), bar_index)
+                label.set_x(array.get(_labelArray, _i), bar_index)
+            float(na)
+
+f_drawLine(_x1, _x2, _yValue, _lineColor, _lineThickness, _lineStyle) =>
+    line.new(x1=_x1, y1=_yValue, x2=_x2, y2=_yValue, color=_lineColor, style=_lineStyle, width=_lineThickness)
+
+f_drawLabel(label_show, _x, _y, _textColor) =>
+    if label_show
+        label.new(_x, _y, '      ' + str.tostring(_y), xloc.bar_index, yloc.price, #00000000, label.style_none, _textColor)
+
+f_drawPivotLineAndLabel(label_show, _x1, _x2, _yValue, _colorLine, _lineCount, _lineThickness, _lineStyle, _pivotArray, _labelArray) =>
+    line l = f_drawLine(_x1, _x2, _yValue, _colorLine, _lineThickness, _lineStyle)
+    label lab = f_drawLabel(label_show, _x1, _yValue, _colorLine)
+
+    if array.size(_pivotArray) == _lineCount
+        line.delete(array.shift(_pivotArray))
+        label.delete(array.shift(_labelArray))
+    array.push(_pivotArray, l)
+    array.push(_labelArray, lab)
+
+f_addLines(label_show, _htfPH, _htfPL, _offsetToPH, _offsetToPL, _newPH, _newPL, h_color, l_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray) =>
+    if _newPH
+        int x1 = bar_index - _offsetToPH
+        int x2 = bar_index
+        float yValue = _htfPH
+        f_drawPivotLineAndLabel(label_show, x1, x2, yValue, h_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray)
+        
+    if _newPL
+        int x1 = bar_index - _offsetToPL
+        int x2 = bar_index
+        float yValue = _htfPL
+        f_drawPivotLineAndLabel(label_show, x1, x2, yValue, l_color, _lineCount, _lineThickness, _lineStyle, _pivotArray, _pivotLabelArray)
+
+//____________________________ Pivot High Low Common Functions End
+
+// Common Calculations
+var res_in_minutes = f_resInMinutes()
+
+// Get Source
+float _high = i_phl_1_source == 'Open/Close' ? math.max(open, close) : high
+float _low = i_phl_1_source == 'Open/Close' ? math.min(open, close) : low
+
+
+//____________________________ Pivot High Low 1 Get Data & Draw Start
+
+// Arrays
+var phl_1_ln_arr = array.new_line(i_phl_1_showlast)
+var phl_1_lbl_arr = array.new_label(i_phl_1_showlast)
+
+// Get Data
+phl_1_bars_htf = int(f_tfResInMinutes(i_phl_1_tf) / res_in_minutes)
+phl_1_bars_offset = int(i_phl_1_left * phl_1_bars_htf)
+
+phl_1_ph = ta.pivothigh(_high, i_phl_1_left, i_phl_1_right)
+phl_1_pl = ta.pivotlow(_low, i_phl_1_left, i_phl_1_right)
+
+phl_1_ph_htf = request.security(syminfo.tickerid, i_phl_1_tf, phl_1_ph)
+phl_1_pl_htf = request.security(syminfo.tickerid, i_phl_1_tf, phl_1_pl)
+phl_1_ph_new = na(phl_1_ph_htf[1]) and not na(phl_1_ph_htf)
+phl_1_pl_new = na(phl_1_pl_htf[1]) and not na(phl_1_pl_htf)
+
+phl_1_ph_offset = f_offsetToP(_high, phl_1_ph_htf, math.min(i_max_bars_back, math.max(30, phl_1_bars_offset + phl_1_bars_htf + 1)))
+phl_1_pl_offset = f_offsetToP(_low, phl_1_pl_htf, math.min(i_max_bars_back, math.max(30, phl_1_bars_offset + phl_1_bars_htf + 1)))
+
+// Draw
+if i_phl_1_show and phl_1_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_1_lbl_show, phl_1_ph_htf, phl_1_pl_htf, phl_1_ph_offset, phl_1_pl_offset, phl_1_ph_new, phl_1_pl_new, i_phl_1_h_ln_color, i_phl_1_l_ln_color, i_phl_1_showlast, i_phl_1_ln_width, i_phl_1_ln_stye, phl_1_ln_arr, phl_1_lbl_arr)   
+
+if i_phl_1_show
+    f_extendArray(phl_1_ln_arr, phl_1_lbl_arr, i_phl_1_ln_extend)
+//____________________________ Pivot High Low 1 Get Data & Draw End
+
+
+//____________________________ Pivot High Low 2 Get Data & Draw Start
+
+// Arrays
+var phl_2_ln_arr = array.new_line(i_phl_2_showlast)
+var phl_2_lbl_arr = array.new_label(i_phl_2_showlast)
+
+// Get Data
+phl_2_bars_htf = int(f_tfResInMinutes(i_phl_2_tf) / res_in_minutes)
+phl_2_bars_offset = int(i_phl_2_left * phl_2_bars_htf)
+
+float phl_2_ph = ta.pivothigh(_high, i_phl_2_left, i_phl_2_right)
+float phl_2_pl = ta.pivotlow(_low, i_phl_2_left, i_phl_2_right)
+
+phl_2_ph_htf = request.security(syminfo.tickerid, i_phl_2_tf, phl_2_ph)
+phl_2_pl_htf = request.security(syminfo.tickerid, i_phl_2_tf, phl_2_pl)
+phl_2_ph_new = na(phl_2_ph_htf[1]) and not na(phl_2_ph_htf)
+phl_2_pl_new = na(phl_2_pl_htf[1]) and not na(phl_2_pl_htf)
+
+phl_2_ph_offset = f_offsetToP(_high, phl_2_ph_htf, math.min(i_max_bars_back, math.max(30, phl_2_bars_offset + phl_2_bars_htf + 1)))
+phl_2_pl_offset = f_offsetToP(_low, phl_2_pl_htf, math.min(i_max_bars_back, math.max(30, phl_2_bars_offset + phl_2_bars_htf + 1)))
+
+// Draw
+if i_phl_2_show and phl_2_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_2_lbl_show, phl_2_ph_htf, phl_2_pl_htf, phl_2_ph_offset, phl_2_pl_offset, phl_2_ph_new, phl_2_pl_new, i_phl_2_h_ln_color, i_phl_2_l_ln_color, i_phl_2_showlast, i_phl_2_ln_width, i_phl_2_ln_stye, phl_2_ln_arr, phl_2_lbl_arr)   
+
+if i_phl_2_show
+    f_extendArray(phl_2_ln_arr, phl_2_lbl_arr, i_phl_2_ln_extend)
+
+//____________________________ Pivot High Low 2 Get Data & Draw End
+
+
+//____________________________ Pivot High Low 3 Get Data & Draw Start
+
+// Arrays
+var phl_3_ln_arr = array.new_line(i_phl_3_showlast)
+var phl_3_lbl_arr = array.new_label(i_phl_3_showlast)
+
+// Get Data
+phl_3_bars_htf = int(f_tfResInMinutes(i_phl_3_tf) / res_in_minutes)
+phl_3_bars_offset = int(i_phl_3_left * phl_3_bars_htf)
+
+float phl_3_ph = ta.pivothigh(_high, i_phl_3_left, i_phl_3_right)
+float phl_3_pl = ta.pivotlow(_low, i_phl_3_left, i_phl_3_right)
+
+phl_3_ph_htf = request.security(syminfo.tickerid, i_phl_3_tf, phl_3_ph)
+phl_3_pl_htf = request.security(syminfo.tickerid, i_phl_3_tf, phl_3_pl)
+phl_3_ph_new = na(phl_3_ph_htf[1]) and not na(phl_3_ph_htf)
+phl_3_pl_new = na(phl_3_pl_htf[1]) and not na(phl_3_pl_htf)
+
+phl_3_ph_offset = f_offsetToP(_high, phl_3_ph_htf, math.min(i_max_bars_back, math.max(30, phl_3_bars_offset + phl_3_bars_htf + 1)))
+phl_3_pl_offset = f_offsetToP(_low, phl_3_pl_htf, math.min(i_max_bars_back, math.max(30, phl_3_bars_offset + phl_3_bars_htf + 1)))
+
+// Draw
+if i_phl_3_show and phl_3_bars_offset <= i_max_bars_back
+    f_addLines(i_phl_3_lbl_show, phl_3_ph_htf, phl_3_pl_htf, phl_3_ph_offset, phl_3_pl_offset, phl_3_ph_new, phl_3_pl_new, i_phl_3_h_ln_color, i_phl_3_l_ln_color, i_phl_3_showlast, i_phl_3_ln_width, i_phl_3_ln_stye, phl_3_ln_arr, phl_3_lbl_arr)   
+
+if i_phl_3_show
+    f_extendArray(phl_3_ln_arr, phl_3_lbl_arr, i_phl_3_ln_extend)
+
+//____________________________ Pivot High Low 3 Get Data & Draw End
+
+
+//____________________________ Equal High Low Start
+
+phl_eq_ph = ta.pivothigh(_high, i_phl_eq_left, i_phl_eq_right)
+phl_eq_pl = ta.pivotlow(_low, i_phl_eq_left, i_phl_eq_right)
+
+i_phl_eq_tf = ""
+phl_eq_ph_htf = request.security(syminfo.tickerid, i_phl_eq_tf, phl_eq_ph)
+phl_eq_pl_htf = request.security(syminfo.tickerid, i_phl_eq_tf, phl_eq_pl)
+
+// Arrays to store the last 2 pivot highs and lows
+var float[] ph_arr = array.new_float(2)
+var int[] ph_bi_arr = array.new_int(2)
+var float[] pl_arr = array.new_float(2)
+var int[] pl_bi_arr = array.new_int(2)
+
+// Pivot calculations
+int prev_ph_bi = na, int prev_pl_bi = na
+bool active_ph = false, bool active_pl = false
+bool ph = false, bool pl = false
+
+// Update the arrays with the last 2 pivot highs and lows
+if not na(phl_eq_ph_htf)
+    ph := true
+    prev_ph_bi := bar_index - i_phl_eq_right
+    array.unshift(ph_bi_arr, bar_index)
+    array.pop(ph_bi_arr)
+
+if not na(phl_eq_pl_htf)
+    pl := true
+    prev_pl_bi := bar_index - i_phl_eq_right
+    array.unshift(pl_bi_arr, bar_index)
+    array.pop(pl_bi_arr)
+
+// Function to update the arrays with the last 2 values
+update_arrays(value, array_ref) =>
+    array.unshift(array_ref, value)
+    array.pop(array_ref)
+
+// Update arrays with the last 2 pivot highs and lows
+if ph
+    update_arrays(phl_eq_ph_htf, ph_arr)
+if pl
+    update_arrays(phl_eq_pl_htf, pl_arr)
+
+// Get last two pivot highs and lows
+ph_price_0 = array.get(ph_arr, 0), ph_price_1 = array.get(ph_arr, 1)
+ph_bi_0 = array.get(ph_bi_arr, 0), ph_bi_1 = array.get(ph_bi_arr, 1)
+
+pl_price_0 = array.get(pl_arr, 0), pl_price_1 = array.get(pl_arr, 1)
+pl_bi_0 = array.get(pl_bi_arr, 0), pl_bi_1 = array.get(pl_bi_arr, 1)
+
+// Function to calculate percentage change
+pchg(price_1, price_2) =>
+    change = price_1 - price_2
+    percent_change = math.abs((change / price_2) * 100)
+    percent_change
+
+// Calculate percentage change between the last two pivot highs and lows
+var float ph_pchg = na
+var float pl_pchg = na
+
+if array.size(ph_arr) >= 2
+    ph_pchg := pchg(array.get(ph_arr, 0), array.get(ph_arr, 1))
+
+if array.size(pl_arr) >= 2
+    pl_pchg := pchg(array.get(pl_arr, 0), array.get(pl_arr, 1))
+
+// Draw Equals Box
+var levelBoxes_equal=array.new_box()
+
+if i_phl_eq_show and ph and ph_pchg < i_phl_eq_percent
+    ph_box = box.new(left=ph_bi_1 - i_phl_eq_right, top=ph_price_1, right=ph_bi_0 - i_phl_eq_right, bottom=ph_price_0, border_color=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, ph_box)
+if i_phl_eq_show and pl and pl_pchg < i_phl_eq_percent
+    pl_box = box.new(left=pl_bi_1 - i_phl_eq_right, top=pl_price_1, right=pl_bi_0 - i_phl_eq_right, bottom=pl_price_0, border_color=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp), bgcolor=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp))
+    array.push(levelBoxes_equal, pl_box)
+
+// Plot Equal Labels
+plotshape(i_phl_eq_show and pl and pl_pchg < i_phl_eq_percent ? low[i_phl_eq_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_eq_right, color=color.new(i_phl_eq_l_ln_color, i_phl_eq_transp), size=size.small)
+plotshape(i_phl_eq_show and ph and ph_pchg < i_phl_eq_percent ? high[i_phl_eq_right] : na, style=shape.xcross, location=location.absolute, offset=-i_phl_eq_right, color=color.new(i_phl_eq_h_ln_color, i_phl_eq_transp), size=size.small)
+
+//____________________________ Equal High Low End
+
+//____________________________ CODE END
