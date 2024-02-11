@@ -1,0 +1,179 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title="ICT Liquidity Void Multi-timeframe", shorttitle="ICT LV", overlay=true)
+
+//_____________________________ Menu Liquidity Void Start
+
+g_lv = '███████████████ Liquidity Void ███████████████'
+string i_lv_htf = input.timeframe(defval='', title='Timeframe', group=g_lv)
+int i_lv_show_last = input.int(defval=2, title='Show Last', minval=0, group=g_lv)
+string i_lv_line = input.string(defval='High/Low', title='Source', options=['High/Low', '50%'], group=g_lv)
+bool i_lv_bear_show = input.bool(defval=true, title='Bearish', group=g_lv)
+bool i_lv_bull_show = input.bool(defval=true, title='Bullish', group=g_lv)
+bool i_lv_hide_crossed = input.bool(defval=false, title='Hide Crossed', group=g_lv)
+
+g_lv_f = "Void Height Filter"
+tt_lv_f = "• Filters remove narrow liquidity voids." +
+ "\n• ATR filtering adjusts automatically when the timeframe changes." +
+ "\n• Percentage filter will be constant across all timeframes." +
+ "\n• If you don't want any filtering, choose 'Percentage' and then change Percentage to 0."
+string i_lv_additional = input.string(defval='ATR', title='Filter Using', options=['ATR', 'Percentage'], tooltip=tt_lv_f, group=g_lv_f)
+tt_lv_atr = "Applicable only if 'Filter Using' is 'ATR'"
+int i_lv_atr_length = input.int(defval=14, minval=1, title='ATR Period', tooltip=tt_lv_atr, group=g_lv_f)
+tt_lv_atr_m = "Higher the number, filters higher void height."
+float i_lv_atr_multi = input.float(defval=4, minval=1, title='ATR Multiplier', tooltip=tt_lv_atr_m, group=g_lv_f)
+tt_lv_p = "Filters liquidity void above the given percentage."
+float i_lv_percentage = input.float(defval=2.5, minval=0, step=0.1, title='Percentage Above', tooltip=tt_lv_p, group=g_lv_f)
+
+g_lv_ds = "Display Settings"
+color i_lv_bear_color = input.color(defval=#F7525F, title='Bearish Color', group=g_lv_ds)
+color i_lv_bull_color = input.color(defval=#22AB94, title='Bullish Color', group=g_lv_ds)
+string i_lv_ln_style = input.string(defval=line.style_solid, title="Line Style", options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_lv_ds)
+int i_lv_ln_width = input.int(defval=2, title='Width', group=g_lv_ds)
+int i_lv_box_trans = input.int(defval=75, title='Box Transparency', group=g_lv_ds)
+
+//_____________________________ Menu Liquidity Void End
+
+//_____________________________ Get Data Start
+
+[open_htf, high_htf, low_htf, close_htf, time_htf, atr_htf, bc_htf] =
+ request.security(symbol=syminfo.tickerid, timeframe=i_lv_htf, expression=[open, high, low, close, time, ta.atr(i_lv_atr_length), barstate.isconfirmed], lookahead=barmerge.lookahead_on)
+
+//_____________________________ Get Data End
+
+//_____________________________ Functions Start
+
+// Function to calculate filter based on ATR or percentage
+filter(prev_value, other_value, _atr_htf, _atr_multi, _percentage, _additional) =>
+    filter_atr = math.abs(prev_value - other_value) > _atr_htf * _atr_multi
+    filter_percent = math.abs((prev_value - other_value) / prev_value * 100) > _percentage
+    _additional == 'ATR' ? filter_atr : filter_percent
+
+// Function to determine line type
+price_source(float prev_value, float other_value, string price_source) =>
+    price_source == 'High/Low' ? prev_value : math.avg(prev_value, other_value)
+
+draw_line(int x1_time, float y1_price, color _color)=>
+    line.new(x1=x1_time, y1=y1_price, x2=time_htf, y2=y1_price, xloc=xloc.bar_time, color=_color, style=i_lv_ln_style, width=i_lv_ln_width)
+
+draw_box(int left_time, float top_price, float bottom_price, color _color)=>
+    box.new(left=left_time, top=top_price, right=time_htf, bottom=bottom_price, xloc=xloc.bar_time, border_color=color.new(_color, i_lv_box_trans), bgcolor=color.new(_color, i_lv_box_trans))
+
+// Function to handle array operations and cleanup
+clean_arrays(_all_lines, _keep_lines, _all_boxes, _keep_boxes, _lv_line, _lv_box) =>
+
+    array.push(_all_lines, _lv_line)
+    array.push(_all_boxes, _lv_box)
+
+    if array.size(_all_lines) > i_lv_show_last
+        removed_line = array.shift(_all_lines)
+        if array.includes(_keep_lines, removed_line)
+            index_of_removed_line = array.indexof(_keep_lines, removed_line)
+            array.remove(_keep_lines, index_of_removed_line)
+        line.delete(removed_line)
+        
+    if array.size(_all_boxes) > i_lv_show_last
+        removed_box = array.shift(_all_boxes)
+        if array.includes(_keep_boxes, removed_box)
+            index_of_removed_box = array.indexof(_keep_boxes, removed_box)
+            array.remove(_keep_boxes, index_of_removed_box)
+        box.delete(removed_box)
+
+break_object(float price) =>
+    high_htf >= price and low_htf <= price 
+
+update_lines(lines, keep_lines, int _time) =>
+    for current_line in lines
+        if not array.includes(keep_lines, current_line)
+            line.set_x2(current_line, _time)
+            line_price = line.get_y1(current_line)
+            if break_object(line_price)
+                array.push(keep_lines, current_line)
+
+update_boxes(boxes, keep_boxes, int _time) =>
+    for current_box in boxes
+        if not array.includes(keep_boxes, current_box)
+            box.set_right(current_box, _time)
+            box_price = box.get_top(current_box)
+            if break_object(box_price)
+                array.push(keep_boxes, current_box)
+
+clean_lines(keep_lines, all_lines) =>
+    for keep_line in keep_lines
+        line_price = line.get_y1(keep_line)
+        if i_lv_hide_crossed and break_object(line_price)
+            line.delete(keep_line)
+            index = array.indexof(all_lines, keep_line)
+            if not na(index)
+                array.remove(all_lines, index)
+
+clean_boxes(keep_boxes, all_boxes) =>
+    for keep_box in keep_boxes
+        box_price = box.get_bottom(keep_box)
+        if i_lv_hide_crossed and break_object(box_price)
+            box.delete(keep_box)
+            index = array.indexof(all_boxes, keep_box)
+            if not na(index)
+                array.remove(all_boxes, index)
+
+//_____________________________ Functions End
+
+//_____________________________ Liquidity Void Bearish Start
+
+var float bear_prev_low = na, var int bear_prev_low_time = na
+var bear_keep_lines = array.new_line(), var bear_all_lines = array.new_line()
+var bear_keep_boxes = array.new_box(), var bear_all_boxes = array.new_box()
+
+if i_lv_bear_show and bc_htf and (close_htf > open_htf)
+    bear_filter = filter(bear_prev_low, high_htf, atr_htf, i_lv_atr_multi, i_lv_percentage, i_lv_additional)
+    bear_price_source = price_source(bear_prev_low, high_htf, i_lv_line)
+
+    if (na(bear_prev_low) or high_htf <= bear_prev_low) and bear_filter
+        lv_bear_line = draw_line(bear_prev_low_time, bear_price_source, i_lv_bear_color)
+        lv_bear_box = draw_box(bear_prev_low_time, high_htf, bear_prev_low, i_lv_bear_color)
+        clean_arrays(bear_all_lines, bear_keep_lines, bear_all_boxes, bear_keep_boxes, lv_bear_line, lv_bear_box)
+
+    bear_prev_low := low_htf
+    bear_prev_low_time := time_htf
+
+// Update
+update_lines(bear_all_lines, bear_keep_lines, time_htf)
+update_boxes(bear_all_boxes, bear_keep_boxes, time_htf)
+
+// Clean
+clean_lines(bear_keep_lines, bear_all_lines)
+clean_boxes(bear_keep_boxes, bear_all_boxes)
+
+//_____________________________ Liquidity Void Bearish End
+
+//_____________________________ Liquidity Void Bullish Start
+
+var float bull_prev_high = na, var int bull_prev_high_time = na
+var bull_keep_lines = array.new_line(), var bull_all_lines = array.new_line()
+var bull_keep_boxes = array.new_box(), var bull_all_boxes = array.new_box()
+
+if i_lv_bull_show and bc_htf and (close_htf < open_htf)
+    bull_filter = filter(bull_prev_high, low_htf, atr_htf, i_lv_atr_multi, i_lv_percentage, i_lv_additional)
+    bull_price_source = price_source(bull_prev_high, low_htf, i_lv_line)
+
+    if (na(bull_prev_high) or low_htf >= bull_prev_high) and bull_filter
+        lv_bull_line = draw_line(bull_prev_high_time, bull_price_source, i_lv_bull_color)
+        lv_bull_box = draw_box(bull_prev_high_time, low_htf, bull_prev_high, i_lv_bull_color)
+        clean_arrays(bull_all_lines, bull_keep_lines, bull_all_boxes, bull_keep_boxes, lv_bull_line, lv_bull_box)
+
+    bull_prev_high := high_htf
+    bull_prev_high_time := time_htf
+
+// Update
+update_lines(bull_all_lines, bull_keep_lines, time_htf)
+update_boxes(bull_all_boxes, bull_keep_boxes, time_htf)
+
+// Clean
+clean_lines(bull_keep_lines, bull_all_lines)
+clean_boxes(bull_keep_boxes, bull_all_boxes)
+
+//_____________________________ Liquidity Void Bullish End
+
+//_____________________________ Code End
