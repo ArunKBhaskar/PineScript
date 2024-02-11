@@ -9,7 +9,7 @@ indicator(title="ICT Liquidity Void Multi-timeframe", shorttitle="ICT LV", overl
 g_lv = '███████████████ Liquidity Void ███████████████'
 string i_lv_htf = input.timeframe(defval='', title='Timeframe', group=g_lv)
 int i_lv_show_last = input.int(defval=2, title='Show Last', minval=0, group=g_lv)
-string i_lv_line = input.string(defval='High/Low', title='Source', options=['High/Low', '50%'], group=g_lv)
+string i_lv_line = input.string(defval='High/Low', title='Source', options=['High/Low', 'OTE 0.79%', '50%'], group=g_lv)
 bool i_lv_bear_show = input.bool(defval=true, title='Bearish', group=g_lv)
 bool i_lv_bull_show = input.bool(defval=true, title='Bullish', group=g_lv)
 bool i_lv_hide_crossed = input.bool(defval=false, title='Hide Crossed', group=g_lv)
@@ -53,7 +53,10 @@ filter(prev_value, other_value, _atr_htf, _atr_multi, _percentage, _additional) 
 
 // Function to determine line type
 price_source(float prev_value, float other_value, string price_source) =>
-    price_source == 'High/Low' ? prev_value : math.avg(prev_value, other_value)
+    price_source == 'High/Low' ? prev_value : 
+     price_source == 'OTE 0.79%' ? other_value + ((prev_value - other_value) * 0.79) : 
+     price_source == 'OTE 0.79%' ? other_value - ((prev_value - other_value) * 0.79) : 
+     math.avg(prev_value, other_value)
 
 draw_line(int x1_time, float y1_price, color _color)=>
     line.new(x1=x1_time, y1=y1_price, x2=time_htf, y2=y1_price, xloc=xloc.bar_time, color=_color, style=i_lv_ln_style, width=i_lv_ln_width)
