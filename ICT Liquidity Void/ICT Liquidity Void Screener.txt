@@ -13,7 +13,7 @@ tt_is = "• Input exactly 40 symbols, nothing more or less." +
      "\n• Use comma as delimiter without any space." +
      "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
 string i_symbols = input.text_area(
- defval="NSE:AEGISCHEM,NSE:BANKINDIA,NSE:BHEL,NSE:BLS,NSE:CASTROLIND,NSE:CESC,NSE:ENGINERSIN,NSE:EQUITASBNK,NSE:FSL,NSE:GICRE,NSE:GPPL,NSE:GSPL,NSE:HFCL,NSE:HINDCOPPER,NSE:HUDCO,NSE:IBULHSGFIN,NSE:INDIACEM,NSE:INDUSTOWER,NSE:IOC,NSE:IRCON,NSE:IRFC,NSE:KARURVYSYA,NSE:NATIONALUM,NSE:NETWORK18,NSE:NIACL,NSE:NLCINDIA,NSE:PCBL,NSE:PFC,NSE:PNB,NSE:PNCINFRA,NSE:RVNL,NSE:SAIL,NSE:SJVN,NSE:TTML,NSE:UNIONBANK,NSE:USHAMART,NSE:VAIBHAVGBL,NSE:WELSPUNLIV,NSE:ZEEL,NSE:ZOMATO",
+ defval="NSE:AEGISCHEM,NSE:BANKINDIA,NSE:BHEL,NSE:BLS,NSE:CASTROLIND,NSE:CESC,NSE:CGPOWER,NSE:CHAMBLFERT,NSE:DELTACORP,NSE:DEVYANI,NSE:EQUITASBNK,NSE:GAEL,NSE:GPPL,NSE:GSFC,NSE:HUDCO,NSE:IBULHSGFIN,NSE:INDIACEM,NSE:INDUSTOWER,NSE:IRCON,NSE:JKPAPER,NSE:JMFINANCIL,NSE:JYOTHYLAB,NSE:KARURVYSYA,NSE:NAM_INDIA,NSE:NATIONALUM,NSE:NCC,NSE:NETWORK18,NSE:NYKAA,NSE:PNB,NSE:RAIN,NSE:RALLIS,NSE:RBA,NSE:RBLBANK,NSE:RCF,NSE:REDINGTON,NSE:TRITURBINE,NSE:UNIONBANK,NSE:VAIBHAVGBL,NSE:WELSPUNLIV,NSE:ZEEL",
  title="Paste Symbols", tooltip=tt_is, group=g_tb)
 
 string i_scr_direction = input.string(defval='Both', title='Direction', options=['Both', 'Bullish', 'Bearish'], inline='tb_1', group=g_tb)
@@ -35,7 +35,7 @@ color i_scr_neu_col = input.color(defval=#B2B5BE, title='0', inline='c', group=g
 g_lv = '███████████████ Liquidity Void ███████████████'
 
 int i_lv_show_last = input.int(defval=2, title='Show Last', minval=0, group=g_lv)
-string i_lv_line = input.string(defval='High/Low', title='Source', options=['High/Low', '50%'], group=g_lv)
+string i_lv_line = input.string(defval='High/Low', title='Source', options=['High/Low', 'OTE 0.79%', '50%'], group=g_lv)
 bool i_lv_bear_show = input.bool(defval=true, title='Bearish', group=g_lv)
 bool i_lv_bull_show = input.bool(defval=true, title='Bullish', group=g_lv)
 bool i_lv_hide_crossed = input.bool(defval=false, title='Hide Crossed', group=g_lv)
@@ -72,7 +72,10 @@ filter(prev_value, other_value, _atr_htf, _atr_multi, _percentage, _additional) 
 
 // Function to determine line type
 price_source(float prev_value, float other_value, string price_source) =>
-    price_source == 'High/Low' ? prev_value : math.avg(prev_value, other_value)
+    price_source == 'High/Low' ? prev_value : 
+     price_source == 'OTE 0.79%' ? other_value + ((prev_value - other_value) * 0.79) : 
+     price_source == 'OTE 0.79%' ? other_value - ((prev_value - other_value) * 0.79) : 
+     math.avg(prev_value, other_value)
 
 draw_line(int x1_time, float y1_price, color _color)=>
     line.new(x1=x1_time, y1=y1_price, x2=time, y2=y1_price, xloc=xloc.bar_time, color=_color, style=i_lv_ln_style, width=i_lv_ln_width)
@@ -142,7 +145,7 @@ clean_boxes(keep_boxes, all_boxes) =>
 //_____________________________ Liquidity Void Bearish Start
 
 var float bear_prev_low = na, var int bear_prev_low_time = na
-var float bear_prev_low_val = na, var float bear_high_val = na
+var float bear_price_source_val = na, var float bear_high_val = na
 var bear_keep_lines = array.new_line(), var bear_all_lines = array.new_line()
 var bear_keep_boxes = array.new_box(), var bear_all_boxes = array.new_box()
 
@@ -156,7 +159,7 @@ if i_lv_bear_show and barstate.isconfirmed and (close > open)
         clean_arrays(bear_all_lines, bear_keep_lines, bear_all_boxes, bear_keep_boxes, lv_bear_line, lv_bear_box)
 
         bear_high_val := high
-        bear_prev_low_val := bear_prev_low
+        bear_price_source_val := bear_price_source
 
     bear_prev_low := low
     bear_prev_low_time := time
@@ -174,7 +177,7 @@ clean_boxes(bear_keep_boxes, bear_all_boxes)
 //_____________________________ Liquidity Void Bullish Start
 
 var float bull_prev_high = na, var int bull_prev_high_time = na
-var float bull_prev_high_val = na, var float bull_low_val = na
+var float bull_price_source_val = na, var float bull_low_val = na
 var bull_keep_lines = array.new_line(), var bull_all_lines = array.new_line()
 var bull_keep_boxes = array.new_box(), var bull_all_boxes = array.new_box()
 
@@ -188,7 +191,7 @@ if i_lv_bull_show and barstate.isconfirmed and (close < open)
         clean_arrays(bull_all_lines, bull_keep_lines, bull_all_boxes, bull_keep_boxes, lv_bull_line, lv_bull_box)
 
         bull_low_val := high
-        bull_prev_high_val := bull_prev_high
+        bull_price_source_val := bull_price_source
 
     bull_prev_high := high
     bull_prev_high_time := time
@@ -243,8 +246,8 @@ feed(back) =>                                             // extract tickerid an
 // Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
 
 // Screener Conditions
-bearish_cond = ta.crossunder(low, bull_prev_high_val) and barstate.isconfirmed
-bullish_cond = ta.crossover(high, bear_prev_low_val) and barstate.isconfirmed
+bearish_cond = ta.crossunder(low, bull_price_source_val) and barstate.isconfirmed
+bullish_cond = ta.crossover(high, bear_price_source_val) and barstate.isconfirmed
 
 // Define Bull and Bear Conditions
 bull = not(i_scr_direction == "Bearish")
