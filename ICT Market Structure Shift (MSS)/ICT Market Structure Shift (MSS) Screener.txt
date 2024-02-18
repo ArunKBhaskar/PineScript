@@ -1,0 +1,452 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+i_max_bars_back = 300
+indicator(title="ICT Market Structure Shift (MSS) Screener", shorttitle="ICT MSS Scr", overlay=true, max_bars_back=i_max_bars_back, max_lines_count=500, max_boxes_count=500)
+
+//_____________________________ Menu Screener Start
+
+g_tb = '█████████████████ Screener █████████████████'
+
+string i_scr_choose = input.string(defval='Market Structure Shift', title='Screening Method', options=['Market Structure Shift', 'Retracement to OTE / OB'], group=g_tb)
+
+tt_is = "• Input exactly 40 symbols, nothing more or less." +
+     "\n• Total characters cannot exceed 4096." +
+     "\n• Use comma as delimiter without any space." +
+     "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+
+string i_symbols = input.text_area(
+ defval="NSE:ABCAPITAL,NSE:ABFRL,NSE:ASHOKLEY,NSE:BANDHANBNK,NSE:BANKBARODA,NSE:BEL,NSE:BHEL,NSE:BIOCON,NSE:CHAMBLFERT,NSE:COALINDIA,NSE:CUB,NSE:DELTACORP,NSE:EXIDEIND,NSE:GAIL,NSE:HINDCOPPER,NSE:IEX,NSE:IGL,NSE:INDIACEM,NSE:INDUSTOWER,NSE:IOC,NSE:JUBLFOOD,NSE:L_TFH,NSE:M_MFIN,NSE:MANAPPURAM,NSE:MOTHERSON,NSE:NATIONALUM,NSE:NMDC,NSE:NTPC,NSE:ONGC,NSE:PETRONET,NSE:PFC,NSE:PNB,NSE:POWERGRID,NSE:RBLBANK,NSE:RECLTD,NSE:SAIL,NSE:TATAPOWER,NSE:UPL,NSE:VEDL,NSE:ZEEL", 
+ title="Paste Symbols", tooltip=tt_is, group=g_tb)
+
+string i_scr_direction = input.string(defval='Both', title='Direction', options=['Both', 'Bullish', 'Bearish'], inline='tb_1', group=g_tb)
+bool i_scr_show_bull  = input.bool(defval=true, title='Only Bullish', inline='tb_2', group=g_tb)
+bool i_scr_show_bear  = input.bool(defval=true, title='Only Bearish', inline='tb_2', group=g_tb)
+
+int i_tbl_disp_rows = input.int(defval=16, title='Display Rows', minval=0, maxval=100, group=g_tb)
+color i_neu_color = input.color(defval=#B2B5BE, title='Text Color', group=g_tb)
+string i_tbl_position = input.string(defval=position.bottom_left, title='Table Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.small, title='Table Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+
+//_____________________________ Menu Screener End
+
+//_____________________________ Menu Zig Zag Start 
+
+g_zz = '██████████████████ Zig Zag ██████████████████'
+
+bool i_zz_bear_show = input.bool(defval=true, title='Bearish', inline='be', group=g_zz)
+bool i_zz_bear_shift_show = input.bool(defval=true, title='Shift', inline='be', group=g_zz)
+bool i_zz_bear_ret_show = input.bool(defval=true, title='Retracement', inline='be', group=g_zz)
+
+bool i_zz_bull_show = input.bool(defval=true, title='Bullish ', inline='bu', group=g_zz)
+bool i_zz_bull_shift_show = input.bool(defval=true, title='Shift', inline='bu', group=g_zz)
+bool i_zz_bull_ret_show = input.bool(defval=true, title='Retracement', inline='bu', group=g_zz)
+
+int i_zz_period = input.int(defval=4, title='Zig Zag Length', minval=2, group=g_zz)
+string i_zz_source = input.string(defval='High/Low', title='Source', options=['High/Low', 'Open/Close'], group=g_zz)
+tt_zz = "• Distance between swings." +
+     "\n• Lower values mean highs and lows are closer."
+float i_zz_percent = input.float(defval=0, minval=0, step=0.1, title='% Difference >', tooltip=tt_zz, group=g_zz)
+bool i_zz_show = input.bool(defval=false, title='', inline='zz', group=g_zz)
+color i_zz_bull_color = input.color(defval=#1E53E5, title='Zig Zag Colors: +', inline='zz', group=g_zz)
+color i_zz_bear_color = input.color(defval=#1E53E5, title='-', inline='zz', group=g_zz)
+color i_pos_color = input.color(defval=#22AB94, title='Colors:             +', inline='c_1', group=g_zz)
+color i_neg_color = input.color(defval=#F7525F, title='-', inline='c_1', group=g_zz)
+color i_zz_bull_signal_color = input.color(defval=#70CCBD, title='Signal Colors:       +', inline='c_2', group=g_zz)
+color i_zz_bear_signal_color = input.color(defval=#FAA1A4, title='-', inline='c_2', group=g_zz)
+int i_zz_bx_transp = input.int(defval=75, title='Box Transparency   ', minval=0, maxval=100, group=g_zz)
+
+g_zz_f = "Additional Filters"
+tt_zz_f = "• Filters remove narrow swing displacements." +
+ "\n• Swing displacement means the distance between old swing high/low and new swing high/low." +
+ "\n• Multiplier filtering adjusts automatically when the chart timeframe changes." +
+ "\n• Percentage filter will be constant across all timeframes." +
+ "\n• If you don't want any filtering, choose 'Percentage' and then change Percentage to 0."
+string i_zz_filter_choice = input.string(defval='Multiplier', title='Filter Using', options=['Multiplier', 'Percentage'], tooltip=tt_zz_f, group=g_zz_f)
+tt_zz_m = "• Higher the number, filters higher swing displacement." +
+ "\n• Eg: If 'Multiplier' is 2, swing displacement is 2 times than the previous swing."
+float i_zz_multiplier = input.float(defval=2, minval=1, step=0.1, title='Multiplier', tooltip=tt_zz_m, group=g_zz_f)
+tt_zz_p = "Filters liquidity displacement above the given percentage."
+float i_zz_percentage = input.float(defval=0.7, minval=0, step=0.1, title='Percentage Above', tooltip=tt_zz_p, group=g_zz_f)
+
+//_____________________________ Menu Zig Zag End 
+
+//_____________________________ Zig Zag Start 
+
+// Acknowledgement & Reference
+// Trader: 'RozaniGhani-RG'
+// Indicator Title: 'Zig Zag Ratio Simplified'
+// Indicator Link: 'https://www.tradingview.com/script/CIk186OY-Zig-Zag-Ratio-Simplified/'
+
+//_____________________________ Get Source
+
+float _high = i_zz_source == 'Open/Close' ? math.max(open, close) : high
+float _low = i_zz_source == 'Open/Close' ? math.min(open, close) : low
+
+//============================== 1.  Variables
+
+//_____________________________ 1.1 Highest / Lowest
+float ph = ta.highestbars(_high, i_zz_period) == 0 ? _high : na
+float pl = ta.lowestbars(_low, i_zz_period) == 0 ? _low  : na
+
+//_____________________________ 1.2 Dir
+var int dir = 0, dir := pl and na(ph) ? -1 : ph and na(pl) ? 1 : dir
+
+//_____________________________ 1.4 Array
+var max_array_size = 10, var zigzag = array.new_float(0), oldzigzag = array.copy(zigzag)
+
+//_____________________________ 1.5 Others
+var line line_zz = na
+
+//============================== 3.  Custom Functions
+
+add_to_zigzag(float[] pointer, float value, int bindex) =>
+    array.unshift(pointer, bindex)
+    array.unshift(pointer, value)
+    if array.size(pointer) > max_array_size
+        array.pop(pointer)
+        array.pop(pointer)
+    
+update_zigzag(float[] pointer, float value, int bindex, int dir) =>
+    if array.size(pointer) == 0
+        add_to_zigzag(pointer, value, bindex)
+    else
+        if dir == 1 and value > array.get(pointer, 0) or dir == -1 and value < array.get(pointer, 0)
+            array.set(pointer, 0, value)
+            array.set(pointer, 1, bindex)
+        0.
+
+//============================== 4.  Calculations
+
+dirchanged = ta.change(dir)
+
+if ph or pl
+    if dirchanged
+        add_to_zigzag(zigzag, dir == 1 ? ph : pl, bar_index)
+    else
+        update_zigzag(zigzag, dir == 1 ? ph : pl, bar_index, dir)
+
+//============================== 5.  Constructs
+
+if array.size(zigzag) >= 6
+    if array.get(zigzag, 0) != array.get(oldzigzag, 0) or array.get(zigzag, 1) != array.get(oldzigzag, 1)
+        if array.get(zigzag, 2) == array.get(oldzigzag, 2) and array.get(zigzag, 3) == array.get(oldzigzag, 3)
+            line.delete(line_zz)
+        if i_zz_show
+            line_zz := line.new(x1 = math.round(array.get(zigzag, 1)), y1 = array.get(zigzag, 0), x2 = math.round(array.get(zigzag, 3)), y2 = array.get(zigzag, 2), color = dir == 1 ? i_zz_bull_color : i_zz_bear_color, width=2)
+
+//_____________________________ Get Swing Price & Bar Index
+
+zz_1 = array.size(zigzag) > 7 ? array.get(zigzag, array.size(zigzag) - 8) : na
+bi_1 = array.size(zigzag) > 6 ? array.get(zigzag, array.size(zigzag) - 7) : na
+zz_2 = array.size(zigzag) > 5 ? array.get(zigzag, array.size(zigzag) - 6) : na
+bi_2 = array.size(zigzag) > 4 ? array.get(zigzag, array.size(zigzag) - 5) : na
+zz_3 = array.size(zigzag) > 3 ? array.get(zigzag, array.size(zigzag) - 4) : na
+bi_3 = array.size(zigzag) > 2 ? array.get(zigzag, array.size(zigzag) - 3) : na
+
+// Create a single label for the last five zigzag values and their corresponding bar index
+//label_text = str.tostring(zz_0) + "\n" + str.tostring(bi_0) + "\n" + str.tostring(zz_1) + "\n" + str.tostring(bi_1) + "\n" + str.tostring(zz_2) + 
+// "\n" + str.tostring(bi_2) + "\n" + str.tostring(zz_3) + "\n" + str.tostring(bi_3) + "\n" + str.tostring(zz_4) + "\n" + str.tostring(bi_4)
+//if barstate.islast
+//    label.new(x = bar_index, y = high, text = label_text, color=color.white)
+
+// Function to calculate filter based on ATR or percentage
+filter(float swing_3, float swing_2, float swing_1, float multiplier, float percentage, string choice) =>
+    filter_x_times = math.abs(swing_1 - swing_2) > math.abs(swing_3 - swing_2) * multiplier
+    filter_percent = math.abs((swing_3 - swing_1) / swing_3 * 100) > percentage
+    choice == 'Multiplier' ? filter_x_times : filter_percent
+
+bearish_filter = filter(zz_3, zz_2, zz_1, i_zz_multiplier, i_zz_percentage, i_zz_filter_choice)
+bullish_filter = filter(zz_3, zz_2, zz_1, i_zz_multiplier, i_zz_percentage, i_zz_filter_choice)
+
+//_____________________________ MSS Conditions
+
+// Bearish Condition
+bearish_condition = 
+ zz_1 > zz_2 and
+ zz_1 > zz_3 and
+ zz_2 < zz_1 and
+ zz_2 < zz_3 and
+ zz_3 < zz_1 and
+ zz_3 > zz_2 and
+ close < zz_1 and
+ close < zz_2 and
+ close < zz_3 and
+ ta.crossunder(close, zz_2) and
+ bearish_filter and 
+ barstate.isconfirmed
+
+// Bullish Condition
+bullish_condition = 
+ zz_1 < zz_2 and
+ zz_1 < zz_3 and
+ zz_2 > zz_1 and
+ zz_2 > zz_3 and
+ zz_3 > zz_1 and
+ zz_3 < zz_2 and
+ close > zz_1 and
+ close > zz_2 and
+ close > zz_3 and
+ ta.crossover(close, zz_2) and
+ bullish_filter and 
+ barstate.isconfirmed
+
+//___________________________ Bearish Retracement
+
+// Retracement Levels
+float bearish_retracement_level = zz_1 - ((zz_1-zz_2)/3)
+float bullish_retracement_level = zz_1 + ((zz_2-zz_1)/3)
+
+// Get Bearish Retracement Price in Bearish Condition
+var bearish_retracement_price = float(na)
+var bearish_retracement_bi = float(na)
+if bearish_condition
+    bearish_retracement_price := bearish_retracement_level
+    bearish_retracement_bi := bi_1
+
+// Bearish Retracement Condition
+bool bearish_retracement_condition = 
+ ta.crossover(high, bearish_retracement_price) and
+ barstate.isconfirmed
+
+// Bearish Retracement in Sequential Order
+var bear_current_state = 0
+bear_previous_state = nz(bear_current_state[1])
+bear_current_state := bear_previous_state == 2 ? 0 : bear_previous_state
+if bearish_condition and bear_current_state == 0
+    bear_current_state := 1
+if bearish_retracement_condition and bear_current_state == 1
+    bear_current_state := 2
+
+bool bearish_retracement_trigger = bear_current_state == 2 ? true : false
+
+//___________________________ Bullish Retracement
+
+// Get Bullish Retracement Price in Bullish Condition
+var bullish_retracement_price = float(na)
+var bullish_retracement_bi = float(na)
+if bullish_condition
+    bullish_retracement_price := bullish_retracement_level
+    bullish_retracement_bi := bi_1
+
+// Bullish Retracement Condition
+bool bullish_retracement_condition = 
+ ta.crossunder(low, bullish_retracement_price) and
+ barstate.isconfirmed
+
+// Bullish Retracement in Sequential Order
+var bull_current_state = 0
+bull_previous_state = nz(bull_current_state[1])
+bull_current_state := bull_previous_state == 2 ? 0 : bull_previous_state
+if bullish_condition and bull_current_state == 0
+    bull_current_state := 1
+if bullish_retracement_condition and bull_current_state == 1
+    bull_current_state := 2
+
+bool bullish_retracement_trigger = bull_current_state == 2 ? true : false
+
+//_____________________________ Plot
+
+// Plot Break Signal
+plotshape(series=i_zz_bear_show and i_zz_bear_shift_show ? bearish_condition : na, title='Bearish Shift', style=shape.triangledown, location=location.abovebar, color=i_zz_bear_signal_color, textcolor=i_zz_bear_signal_color, size=size.tiny)
+plotshape(series=i_zz_bull_show and i_zz_bull_shift_show ? bullish_condition : na, title='Bullish Shift', style=shape.triangleup, location=location.belowbar, color=i_zz_bull_signal_color, textcolor=i_zz_bull_signal_color, size=size.tiny)
+barcolor(color=i_zz_bear_show and i_zz_bear_shift_show and bearish_condition ? i_zz_bear_signal_color : i_zz_bull_show and i_zz_bull_shift_show and bullish_condition ? i_zz_bull_signal_color : na, title='Shift Candle')
+
+//var box_array = array.new_box()
+var line_array = array.new_line()
+
+if i_zz_bear_show and bearish_condition
+    ph_box = box.new(left=int(bi_3), top=zz_3, right=int(bi_1), bottom=zz_1, border_color=#00000000, bgcolor=color.new(i_neg_color, i_zz_bx_transp))
+    if i_zz_bear_shift_show
+        ph_line = line.new(x1=int(bi_2), y1=zz_2, x2=bar_index, y2=zz_2, color=i_neg_color, style=line.style_dashed)
+        //array.push(box_array, ph_box)
+        array.push(line_array, ph_line)
+
+if i_zz_bull_show and bullish_condition
+    pl_box = box.new(left=int(bi_3), top=zz_3, right=int(bi_1), bottom=zz_1, border_color=#00000000, bgcolor=color.new(i_pos_color, i_zz_bx_transp))
+    if i_zz_bull_shift_show
+        pl_line = line.new(x1=int(bi_2), y1=zz_2, x2=bar_index, y2=zz_2, color=i_pos_color, style=line.style_dashed)
+        //array.push(box_array, pl_box)
+        array.push(line_array, pl_line)
+
+// Plot Retracement Signal
+plotchar(series=i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger ? 3 : na, title='Bear Retracement', char="↷", location=location.abovebar, color=i_zz_bear_signal_color, size=size.tiny)
+plotchar(series=i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger ? 3 : na, title='Bull Retracement', char="⤻", location=location.belowbar, color=i_zz_bull_signal_color, size=size.tiny)
+barcolor(color=i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger ? i_zz_bear_signal_color : i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger ? i_zz_bull_signal_color : na, title='Retracement Candle')
+
+//var line_array = array.new_line()
+
+if i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger
+    bull_ret_ln = line.new(x1=int(bearish_retracement_bi), y1=bearish_retracement_price, x2=bar_index, y2=bearish_retracement_price, color=i_neg_color, style=line.style_dotted)
+    array.push(line_array, bull_ret_ln)
+
+if i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger
+    bear_ret_ln = line.new(x1=int(bullish_retracement_bi), y1=bullish_retracement_price, x2=bar_index, y2=bullish_retracement_price, color=i_pos_color, style=line.style_dotted)
+    array.push(line_array, bear_ret_ln)
+
+//_____________________________ Zig Zag End 
+
+//_____________________________ Get Symbols for Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'allanster'
+// Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
+// Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
+
+feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
+    loop  = back                                          // declare string variable to hold content list
+    getT  = string(na)                                    // declare string variable to hold tickerid
+    if str.length(loop) == 0                              // if list is empty
+        getT := string(na)                                // assign na to tickerid variable
+        loop := string(na)                                // assign na to list of ticker Ids variable
+    else                                                  // else extract first tickerid
+        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
+        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
+    [getT, loop]                                          // return tickerid in first position & truncated list
+
+[tid_001, out_001] = feed(i_symbols), [tid_002, out_002] = feed(out_001), [tid_003, out_003] = feed(out_002), [tid_004, out_004] = feed(out_003),
+[tid_005, out_005] = feed(out_004), [tid_006, out_006] = feed(out_005), [tid_007, out_007] = feed(out_006), [tid_008, out_008] = feed(out_007),
+[tid_009, out_009] = feed(out_008), [tid_010, out_010] = feed(out_009), [tid_011, out_011] = feed(out_010), [tid_012, out_012] = feed(out_011),
+[tid_013, out_013] = feed(out_012), [tid_014, out_014] = feed(out_013), [tid_015, out_015] = feed(out_014), [tid_016, out_016] = feed(out_015),
+[tid_017, out_017] = feed(out_016), [tid_018, out_018] = feed(out_017), [tid_019, out_019] = feed(out_018), [tid_020, out_020] = feed(out_019),
+[tid_021, out_021] = feed(out_020), [tid_022, out_022] = feed(out_021), [tid_023, out_023] = feed(out_022), [tid_024, out_024] = feed(out_023),
+[tid_025, out_025] = feed(out_024), [tid_026, out_026] = feed(out_025), [tid_027, out_027] = feed(out_026), [tid_028, out_028] = feed(out_027),
+[tid_029, out_029] = feed(out_028), [tid_030, out_030] = feed(out_029), [tid_031, out_031] = feed(out_030), [tid_032, out_032] = feed(out_031),
+[tid_033, out_033] = feed(out_032), [tid_034, out_034] = feed(out_033), [tid_035, out_035] = feed(out_034), [tid_036, out_036] = feed(out_035),
+[tid_037, out_037] = feed(out_036), [tid_038, out_038] = feed(out_037), [tid_039, out_039] = feed(out_038), [tid_040, out_040] = feed(out_039)
+
+//_____________________________ Get Symbols for Screener End
+
+//_____________________________ Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'MUQWISHI'
+// Indicator Title: 'Candlestick Patterns Screener [By MUQWISHI]'
+// Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
+
+// Choose Screening Method
+bear_method =
+ i_scr_choose == 'Market Structure Shift' ? bearish_condition :
+ bearish_retracement_trigger and bearish_retracement_condition
+
+bull_method =
+ i_scr_choose == 'Market Structure Shift' ? bullish_condition :
+ bullish_retracement_trigger and bullish_retracement_condition
+
+// Screener Conditions
+bearish_cond = bear_method
+bullish_cond = bull_method 
+
+// Define Bull and Bear Conditions
+bull = not(i_scr_direction == "Bearish")
+bear = not(i_scr_direction == "Bullish")
+
+// Function for Screener Indicator Calculation
+indicator_calculation() =>
+    // Initialize variables
+    price = float(na)
+    _time = int(na)
+    signal = int(na) 
+
+    if barstate.isconfirmed
+        // Check for Bearish Momentum Candle and conditions (Modify here to customize indicators)
+        if i_scr_show_bull and bearish_cond and bear 
+            signal := -1
+
+        // Check for Bullish Momentum Candle and conditions (Modify here to customize indicators)
+        else if i_scr_show_bear and bullish_cond and bull
+            signal := 1
+
+        // Update price and time if signal is not null
+        if not na(signal)
+            price := math.round_to_mintick(close)
+            _time := time
+
+    [_time, price, signal]
+
+// Function to format time
+format_time(x) =>
+    timezone = syminfo.timezone
+    timeframe.isintraday ? str.format_time(x, "HH:mm  dd-MM-yyyy", timezone) : str.format_time(x, "dd-MM-yyyy", timezone)
+
+// Function to extract symbol name
+symbol(s) => 
+    array.get(str.split(s, ":"), 1)
+
+// Matrix setup
+var matrix = matrix.new<string>(0, 4, na)
+
+// Function to add rows to the matrix
+mtxFun(symbol, _time, price, signal) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, price, signal))
+
+// Screener function to collect data
+screener(s) =>
+    sym = ticker.modify(s, syminfo.session)
+    [_time, price, signal] = request.security(sym, timeframe.period, indicator_calculation())
+
+    // Check if the signal is not na and the time matches
+    if not na(signal) and _time == time
+        symbolName = symbol(s)
+        formattedTime = format_time(_time)
+        strPrice = str.tostring(price)
+        strSignal = str.tostring(signal)
+        
+        // Add data to the matrix
+        mtxFun(symbolName, formattedTime, strPrice, strSignal)
+
+// Call Screener function for multiple symbols
+screener(tid_001), screener(tid_002), screener(tid_003), screener(tid_004), screener(tid_005), screener(tid_006), screener(tid_007),
+screener(tid_008), screener(tid_009), screener(tid_010), screener(tid_011), screener(tid_012), screener(tid_013), screener(tid_014),
+screener(tid_015), screener(tid_016), screener(tid_017), screener(tid_018), screener(tid_019), screener(tid_020), screener(tid_021),
+screener(tid_022), screener(tid_023), screener(tid_024), screener(tid_025), screener(tid_026), screener(tid_027), screener(tid_028),
+screener(tid_029), screener(tid_030), screener(tid_031), screener(tid_032), screener(tid_033), screener(tid_034), screener(tid_035),
+screener(tid_036), screener(tid_037), screener(tid_038), screener(tid_039), screener(tid_040)
+
+// Trim excess rows in the matrix
+if matrix.rows(matrix) > i_tbl_disp_rows
+    while matrix.rows(matrix) > i_tbl_disp_rows
+        matrix.remove_row(matrix, matrix.rows(matrix)-1)
+
+// Plot Table
+// Create table with specified properties
+var table tbl = table.new(position=i_tbl_position, columns=3, rows=102, border_width=1)
+
+// Function to populate cells in the table
+cell_title(col, row, txt) => 
+    table.cell(tbl, col, row, text = txt, text_color = i_neu_color, text_halign=text.align_center, bgcolor = color.new(i_neu_color, 90), text_size=i_tbl_text_size)
+
+cell(col, row, txt, color) => 
+    table.cell(tbl, col, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 90), text_size=i_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast
+    // Clear existing data in the table
+    table.clear(tbl, 0, 0, 2, 101)
+
+    cell_title(0, 0, i_scr_choose)
+    table.merge_cells(table_id=tbl, start_column=0, start_row=0, end_column=2, end_row=0)
+    cell_title(0, 1, "Symbol")
+    cell_title(1, 1, "Time")
+    cell_title(2, 1, "Price")
+
+    j = 2
+    // Populate table with matrix data
+    if matrix.rows(matrix) > 0
+        for i = 0 to matrix.rows(matrix) - 1
+            // Determine color based on the signal
+            col = matrix.get(matrix, i, 3) ==  "1" ? i_pos_color :
+                  matrix.get(matrix, i, 3) == "-1" ? i_neg_color : i_neu_color
+
+            // Populate cells in the table
+            cell(0, j, matrix.get(matrix, i, 0), col)
+            cell(1, j, matrix.get(matrix, i, 1), col)
+            cell(2, j, matrix.get(matrix, i, 2), col)
+
+            j += 1
+
+//_____________________________ Screener End
+
+//_____________________________ Code End

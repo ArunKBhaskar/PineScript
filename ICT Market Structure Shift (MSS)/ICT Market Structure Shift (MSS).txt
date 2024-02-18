@@ -1,0 +1,264 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+i_max_bars_back = 300
+indicator(title="ICT Market Structure Shift (MSS)", shorttitle="ICT MSS", overlay=true, max_bars_back=i_max_bars_back, max_lines_count=500, max_boxes_count=500)
+
+//_____________________________ Menu Zig Zag Start 
+
+g_zz = '██████████████████ Zig Zag ██████████████████'
+
+bool i_zz_bear_show = input.bool(defval=true, title='Bearish', inline='be', group=g_zz)
+bool i_zz_bear_shift_show = input.bool(defval=true, title='Shift', inline='be', group=g_zz)
+bool i_zz_bear_ret_show = input.bool(defval=true, title='Retracement', inline='be', group=g_zz)
+
+bool i_zz_bull_show = input.bool(defval=true, title='Bullish ', inline='bu', group=g_zz)
+bool i_zz_bull_shift_show = input.bool(defval=true, title='Shift', inline='bu', group=g_zz)
+bool i_zz_bull_ret_show = input.bool(defval=true, title='Retracement', inline='bu', group=g_zz)
+
+int i_zz_period = input.int(defval=4, title='Zig Zag Length', minval=2, group=g_zz)
+string i_zz_source = input.string(defval='High/Low', title='Source', options=['High/Low', 'Open/Close'], group=g_zz)
+tt_zz = "• Distance between swings." +
+     "\n• Lower values mean highs and lows are closer."
+float i_zz_percent = input.float(defval=0, minval=0, step=0.1, title='% Difference >', tooltip=tt_zz, group=g_zz)
+bool i_zz_show = input.bool(defval=false, title='', inline='zz', group=g_zz)
+color i_zz_bull_color = input.color(defval=#1E53E5, title='Zig Zag Colors: +', inline='zz', group=g_zz)
+color i_zz_bear_color = input.color(defval=#1E53E5, title='-', inline='zz', group=g_zz)
+color i_pos_color = input.color(defval=#22AB94, title='Colors:             +', inline='c_1', group=g_zz)
+color i_neg_color = input.color(defval=#F7525F, title='-', inline='c_1', group=g_zz)
+color i_zz_bull_signal_color = input.color(defval=#70CCBD, title='Signal Colors:       +', inline='c_2', group=g_zz)
+color i_zz_bear_signal_color = input.color(defval=#FAA1A4, title='-', inline='c_2', group=g_zz)
+int i_zz_bx_transp = input.int(defval=75, title='Box Transparency   ', minval=0, maxval=100, group=g_zz)
+
+g_zz_f = "Additional Filters"
+tt_zz_f = "• Filters remove narrow swing displacements." +
+ "\n• Swing displacement means the distance between old swing high/low and new swing high/low." +
+ "\n• Multiplier filtering adjusts automatically when the chart timeframe changes." +
+ "\n• Percentage filter will be constant across all timeframes." +
+ "\n• If you don't want any filtering, choose 'Percentage' and then change Percentage to 0."
+string i_zz_filter_choice = input.string(defval='Multiplier', title='Filter Using', options=['Multiplier', 'Percentage'], tooltip=tt_zz_f, group=g_zz_f)
+tt_zz_m = "• Higher the number, filters higher swing displacement." +
+ "\n• Eg: If 'Multiplier' is 2, swing displacement is 2 times than the previous swing."
+float i_zz_multiplier = input.float(defval=2, minval=1, step=0.1, title='Multiplier', tooltip=tt_zz_m, group=g_zz_f)
+tt_zz_p = "Filters liquidity displacement above the given percentage."
+float i_zz_percentage = input.float(defval=0.7, minval=0, step=0.1, title='Percentage Above', tooltip=tt_zz_p, group=g_zz_f)
+
+//_____________________________ Menu Zig Zag End 
+
+//_____________________________ Zig Zag Start 
+
+// Acknowledgement & Reference
+// Trader: 'RozaniGhani-RG'
+// Indicator Title: 'Zig Zag Ratio Simplified'
+// Indicator Link: 'https://www.tradingview.com/script/CIk186OY-Zig-Zag-Ratio-Simplified/'
+
+//_____________________________ Get Source
+
+float _high = i_zz_source == 'Open/Close' ? math.max(open, close) : high
+float _low = i_zz_source == 'Open/Close' ? math.min(open, close) : low
+
+//============================== 1.  Variables
+
+//_____________________________ 1.1 Highest / Lowest
+float ph = ta.highestbars(_high, i_zz_period) == 0 ? _high : na
+float pl = ta.lowestbars(_low, i_zz_period) == 0 ? _low  : na
+
+//_____________________________ 1.2 Dir
+var int dir = 0, dir := pl and na(ph) ? -1 : ph and na(pl) ? 1 : dir
+
+//_____________________________ 1.4 Array
+var max_array_size = 10, var zigzag = array.new_float(0), oldzigzag = array.copy(zigzag)
+
+//_____________________________ 1.5 Others
+var line line_zz = na
+
+//============================== 3.  Custom Functions
+
+add_to_zigzag(float[] pointer, float value, int bindex) =>
+    array.unshift(pointer, bindex)
+    array.unshift(pointer, value)
+    if array.size(pointer) > max_array_size
+        array.pop(pointer)
+        array.pop(pointer)
+    
+update_zigzag(float[] pointer, float value, int bindex, int dir) =>
+    if array.size(pointer) == 0
+        add_to_zigzag(pointer, value, bindex)
+    else
+        if dir == 1 and value > array.get(pointer, 0) or dir == -1 and value < array.get(pointer, 0)
+            array.set(pointer, 0, value)
+            array.set(pointer, 1, bindex)
+        0.
+
+//============================== 4.  Calculations
+
+dirchanged = ta.change(dir)
+
+if ph or pl
+    if dirchanged
+        add_to_zigzag(zigzag, dir == 1 ? ph : pl, bar_index)
+    else
+        update_zigzag(zigzag, dir == 1 ? ph : pl, bar_index, dir)
+
+//============================== 5.  Constructs
+
+if array.size(zigzag) >= 6
+    if array.get(zigzag, 0) != array.get(oldzigzag, 0) or array.get(zigzag, 1) != array.get(oldzigzag, 1)
+        if array.get(zigzag, 2) == array.get(oldzigzag, 2) and array.get(zigzag, 3) == array.get(oldzigzag, 3)
+            line.delete(line_zz)
+        if i_zz_show
+            line_zz := line.new(x1 = math.round(array.get(zigzag, 1)), y1 = array.get(zigzag, 0), x2 = math.round(array.get(zigzag, 3)), y2 = array.get(zigzag, 2), color = dir == 1 ? i_zz_bull_color : i_zz_bear_color, width=2)
+
+//_____________________________ Get Swing Price & Bar Index
+
+zz_1 = array.size(zigzag) > 7 ? array.get(zigzag, array.size(zigzag) - 8) : na
+bi_1 = array.size(zigzag) > 6 ? array.get(zigzag, array.size(zigzag) - 7) : na
+zz_2 = array.size(zigzag) > 5 ? array.get(zigzag, array.size(zigzag) - 6) : na
+bi_2 = array.size(zigzag) > 4 ? array.get(zigzag, array.size(zigzag) - 5) : na
+zz_3 = array.size(zigzag) > 3 ? array.get(zigzag, array.size(zigzag) - 4) : na
+bi_3 = array.size(zigzag) > 2 ? array.get(zigzag, array.size(zigzag) - 3) : na
+
+// Create a single label for the last five zigzag values and their corresponding bar index
+//label_text = str.tostring(zz_0) + "\n" + str.tostring(bi_0) + "\n" + str.tostring(zz_1) + "\n" + str.tostring(bi_1) + "\n" + str.tostring(zz_2) + 
+// "\n" + str.tostring(bi_2) + "\n" + str.tostring(zz_3) + "\n" + str.tostring(bi_3) + "\n" + str.tostring(zz_4) + "\n" + str.tostring(bi_4)
+//if barstate.islast
+//    label.new(x = bar_index, y = high, text = label_text, color=color.white)
+
+// Function to calculate filter based on ATR or percentage
+filter(float swing_3, float swing_2, float swing_1, float multiplier, float percentage, string choice) =>
+    filter_x_times = math.abs(swing_1 - swing_2) > math.abs(swing_3 - swing_2) * multiplier
+    filter_percent = math.abs((swing_3 - swing_1) / swing_3 * 100) > percentage
+    choice == 'Multiplier' ? filter_x_times : filter_percent
+
+bearish_filter = filter(zz_3, zz_2, zz_1, i_zz_multiplier, i_zz_percentage, i_zz_filter_choice)
+bullish_filter = filter(zz_3, zz_2, zz_1, i_zz_multiplier, i_zz_percentage, i_zz_filter_choice)
+
+//_____________________________ MSS Conditions
+
+// Bearish Condition
+bearish_condition = 
+ zz_1 > zz_2 and
+ zz_1 > zz_3 and
+ zz_2 < zz_1 and
+ zz_2 < zz_3 and
+ zz_3 < zz_1 and
+ zz_3 > zz_2 and
+ close < zz_1 and
+ close < zz_2 and
+ close < zz_3 and
+ ta.crossunder(close, zz_2) and
+ bearish_filter and 
+ barstate.isconfirmed
+
+// Bullish Condition
+bullish_condition = 
+ zz_1 < zz_2 and
+ zz_1 < zz_3 and
+ zz_2 > zz_1 and
+ zz_2 > zz_3 and
+ zz_3 > zz_1 and
+ zz_3 < zz_2 and
+ close > zz_1 and
+ close > zz_2 and
+ close > zz_3 and
+ ta.crossover(close, zz_2) and
+ bullish_filter and 
+ barstate.isconfirmed
+
+//___________________________ Bearish Retracement
+
+// Retracement Levels
+float bearish_retracement_level = zz_1 - ((zz_1-zz_2)/3)
+float bullish_retracement_level = zz_1 + ((zz_2-zz_1)/3)
+
+// Get Bearish Retracement Price in Bearish Condition
+var bearish_retracement_price = float(na)
+var bearish_retracement_bi = float(na)
+if bearish_condition
+    bearish_retracement_price := bearish_retracement_level
+    bearish_retracement_bi := bi_1
+
+// Bearish Retracement Condition
+bool bearish_retracement_condition = 
+ ta.crossover(high, bearish_retracement_price) and
+ barstate.isconfirmed
+
+// Bearish Retracement in Sequential Order
+var bear_current_state = 0
+bear_previous_state = nz(bear_current_state[1])
+bear_current_state := bear_previous_state == 2 ? 0 : bear_previous_state
+if bearish_condition and bear_current_state == 0
+    bear_current_state := 1
+if bearish_retracement_condition and bear_current_state == 1
+    bear_current_state := 2
+
+bool bearish_retracement_trigger = bear_current_state == 2 ? true : false
+
+//___________________________ Bullish Retracement
+
+// Get Bullish Retracement Price in Bullish Condition
+var bullish_retracement_price = float(na)
+var bullish_retracement_bi = float(na)
+if bullish_condition
+    bullish_retracement_price := bullish_retracement_level
+    bullish_retracement_bi := bi_1
+
+// Bullish Retracement Condition
+bool bullish_retracement_condition = 
+ ta.crossunder(low, bullish_retracement_price) and
+ barstate.isconfirmed
+
+// Bullish Retracement in Sequential Order
+var bull_current_state = 0
+bull_previous_state = nz(bull_current_state[1])
+bull_current_state := bull_previous_state == 2 ? 0 : bull_previous_state
+if bullish_condition and bull_current_state == 0
+    bull_current_state := 1
+if bullish_retracement_condition and bull_current_state == 1
+    bull_current_state := 2
+
+bool bullish_retracement_trigger = bull_current_state == 2 ? true : false
+
+//_____________________________ Plot
+
+// Plot Break Signal
+plotshape(series=i_zz_bear_show and i_zz_bear_shift_show ? bearish_condition : na, title='Bearish Shift', style=shape.triangledown, location=location.abovebar, color=i_zz_bear_signal_color, textcolor=i_zz_bear_signal_color, size=size.tiny)
+plotshape(series=i_zz_bull_show and i_zz_bull_shift_show ? bullish_condition : na, title='Bullish Shift', style=shape.triangleup, location=location.belowbar, color=i_zz_bull_signal_color, textcolor=i_zz_bull_signal_color, size=size.tiny)
+barcolor(color=i_zz_bear_show and i_zz_bear_shift_show and bearish_condition ? i_zz_bear_signal_color : i_zz_bull_show and i_zz_bull_shift_show and bullish_condition ? i_zz_bull_signal_color : na, title='Shift Candle')
+
+//var box_array = array.new_box()
+var line_array = array.new_line()
+
+if i_zz_bear_show and bearish_condition
+    ph_box = box.new(left=int(bi_3), top=zz_3, right=int(bi_1), bottom=zz_1, border_color=#00000000, bgcolor=color.new(i_neg_color, i_zz_bx_transp))
+    if i_zz_bear_shift_show
+        ph_line = line.new(x1=int(bi_2), y1=zz_2, x2=bar_index, y2=zz_2, color=i_neg_color, style=line.style_dashed)
+        //array.push(box_array, ph_box)
+        array.push(line_array, ph_line)
+
+if i_zz_bull_show and bullish_condition
+    pl_box = box.new(left=int(bi_3), top=zz_3, right=int(bi_1), bottom=zz_1, border_color=#00000000, bgcolor=color.new(i_pos_color, i_zz_bx_transp))
+    if i_zz_bull_shift_show
+        pl_line = line.new(x1=int(bi_2), y1=zz_2, x2=bar_index, y2=zz_2, color=i_pos_color, style=line.style_dashed)
+        //array.push(box_array, pl_box)
+        array.push(line_array, pl_line)
+
+// Plot Retracement Signal
+plotchar(series=i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger ? 3 : na, title='Bear Retracement', char="↷", location=location.abovebar, color=i_zz_bear_signal_color, size=size.tiny)
+plotchar(series=i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger ? 3 : na, title='Bull Retracement', char="⤻", location=location.belowbar, color=i_zz_bull_signal_color, size=size.tiny)
+barcolor(color=i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger ? i_zz_bear_signal_color : i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger ? i_zz_bull_signal_color : na, title='Retracement Candle')
+
+//var line_array = array.new_line()
+
+if i_zz_bear_show and i_zz_bear_ret_show and bearish_retracement_trigger
+    bull_ret_ln = line.new(x1=int(bearish_retracement_bi), y1=bearish_retracement_price, x2=bar_index, y2=bearish_retracement_price, color=i_neg_color, style=line.style_dotted)
+    array.push(line_array, bull_ret_ln)
+
+if i_zz_bull_show and i_zz_bull_ret_show and bullish_retracement_trigger
+    bear_ret_ln = line.new(x1=int(bullish_retracement_bi), y1=bullish_retracement_price, x2=bar_index, y2=bullish_retracement_price, color=i_pos_color, style=line.style_dotted)
+    array.push(line_array, bear_ret_ln)
+
+//_____________________________ Zig Zag End
+
+//_____________________________ Code End
