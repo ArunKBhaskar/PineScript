@@ -37,7 +37,7 @@ tt_zz_f = "• Filters remove narrow swing displacements." +
  "\n• Multiplier filtering adjusts automatically when the chart timeframe changes." +
  "\n• Percentage filter will be constant across all timeframes." +
  "\n• If you don't want any filtering, choose 'Percentage' and then change Percentage to 0."
-string i_zz_filter_choice = input.string(defval='Multiplier', title='Filter Using', options=['Multiplier', 'Percentage'], tooltip=tt_zz_f, group=g_zz_f)
+string i_zz_filter_choice = input.string(defval='Percentage', title='Filter Using', options=['Multiplier', 'Percentage'], tooltip=tt_zz_f, group=g_zz_f)
 tt_zz_m = "• Higher the number, filters higher swing displacement." +
  "\n• Eg: If 'Multiplier' is 2, swing displacement is 2 times than the previous swing."
 float i_zz_multiplier = input.float(defval=2, minval=1, step=0.1, title='Multiplier', tooltip=tt_zz_m, group=g_zz_f)
