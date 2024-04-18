@@ -7,7 +7,7 @@ indicator(title='Momentum Setup: Vijay Thakare Option Buying Scalping Setup', sh
 //_____________________________ Menu Indicators Start
 
 gp_ma = '█████████ Exponential Moving Average (EMA) █████████'
-bool i_ma_display = input.bool(defval=false, title='Display', inline='EMA', group=gp_ma)
+bool i_ma_display = input.bool(defval=true, title='Display', inline='EMA', group=gp_ma)
 int i_ma_len_1 = input.int(defval=20, title='Length', minval=1, group=gp_ma)
 int i_ma_len_2 = input.int(defval=50, title='Length', minval=1, group=gp_ma)
 int i_ma_len_3 = input.int(defval=100, title='Length', minval=1, group=gp_ma)
@@ -86,8 +86,8 @@ float ema_4 = ta.ema(close, i_ma_len_4)
 
 plot(series=i_ma_display ? ema_1 : na, title='EMA 1', color=i_pos_col)
 plot(series=i_ma_display ? ema_2 : na, title='EMA 2', color=i_indicator_col)
-plot(series=i_ma_display ? ema_3 : na, title='EMA 3', color=i_signal_col)
-plot(series=i_ma_display ? ema_4 : na, title='EMA 4', color=i_neg_col)
+plot(series=i_ma_display ? ema_3 : na, title='EMA 3', color=i_signal_col, display=display.none)
+plot(series=i_ma_display ? ema_4 : na, title='EMA 4', color=i_neg_col, display=display.none)
 
 //_____________________________ 1. EMA 20, 50, 100, 200 End
 
@@ -113,7 +113,7 @@ float stoc_d = ta.sma(stoc_k, i_stoc_d_smooth)
 
 //_____________________________ 5. Volume: 20 SMA Start
 
-vol_sma = ta.sma(volume, 20)
+vol_sma = ta.sma(volume, i_vol_ma_len)
 
 //_____________________________ 5. Volume: 20 SMA End
 
@@ -144,7 +144,7 @@ exrem(condition_1, condition_2) =>
 short_cont = 
  close < vwap_D and 
  macdLine < 0 and 
- stoc_k < 60 and 
+ stoc_k < i_stoc_over_bought and 
  filter_atr and
  momentum_candle and
  //volume > vol_sma and
@@ -153,7 +153,7 @@ short_cont =
 long_cont = 
  close > vwap_D and 
  macdLine > 0 and 
- stoc_k > 40 and 
+ stoc_k > i_stoc_over_sold and 
  filter_atr and
  momentum_candle and
  //volume > vol_sma and
@@ -285,21 +285,21 @@ if barstate.islast
 var table tbl = table.new(position=i_tbl_position, columns=2, rows=12, border_width=2)
 
 // Color
-col_macd = macdLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
-col_macd_sig = signalLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
-col_macd_hist = histLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_macd = macdLine > 0 ? i_pos_col : i_neg_col
+col_macd_sig = macdLine > signalLine ? i_pos_col : i_neg_col
+col_macd_hist = histLine > 0 ? i_pos_col : i_neg_col
 
-col_stoc_k = stoc_k > i_stoc_over_sold and barstate.isconfirmed ? i_pos_col : stoc_k < i_stoc_over_bought and barstate.isconfirmed ? i_neg_col : i_neu_col
-col_stoc_d = stoc_d > i_stoc_over_sold and barstate.isconfirmed ? i_pos_col : stoc_d < i_stoc_over_bought and barstate.isconfirmed ? i_neg_col : i_neu_col
+col_stoc_k = stoc_k > i_stoc_over_sold ? i_pos_col : stoc_k < i_stoc_over_bought ? i_neg_col : i_neu_col
+col_stoc_d = stoc_k > stoc_d ? i_pos_col : stoc_k < stoc_d ? i_neg_col : i_neu_col
 
-col_vwap = close > vwap_D and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_vwap = close > vwap_D ? i_pos_col : i_neg_col
 
-col_ema_20 = close > ema_1 and barstate.isconfirmed ? i_pos_col : i_neg_col
-col_ema_50 = close > ema_2 and barstate.isconfirmed ? i_pos_col : i_neg_col
-col_ema_100 = close > ema_3 and barstate.isconfirmed ? i_pos_col : i_neg_col
-col_ema_200 = close > ema_4 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_ema_20 = close > ema_1 ? i_pos_col : i_neg_col
+col_ema_50 = close > ema_2 ? i_pos_col : i_neg_col
+col_ema_100 = close > ema_3 ? i_pos_col : i_neg_col
+col_ema_200 = close > ema_4 ? i_pos_col : i_neg_col
 
-col_vol = volume > vol_sma and barstate.isconfirmed ? i_pos_col : i_neu_col
+col_vol = volume > vol_sma ? i_pos_col : i_neu_col
 
 // Function to populate cells in the table
 cell(int column, int row, string txt, color color) => 
@@ -388,4 +388,4 @@ if barstate.islast
 // 
 // Personal Approach:
 // When entering trades, I often apply the "ICT Daily Bias" concept for continuous momentum runs.
-// Alternatively, I consider retracement or discount concepts like "ICTE FVG" or "OTE" for entry.
+// Alternatively, I consider retracement or discount concepts like "ICTE FVG" or "OTE" for entry. 
