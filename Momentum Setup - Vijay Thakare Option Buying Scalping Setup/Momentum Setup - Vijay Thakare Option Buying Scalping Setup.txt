@@ -1,0 +1,391 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title='Momentum Setup: Vijay Thakare Option Buying Scalping Setup', shorttitle='VT Scalp', overlay=true, max_bars_back=500, max_lines_count=500, max_boxes_count=500)
+
+//_____________________________ Menu Indicators Start
+
+gp_ma = '█████████ Exponential Moving Average (EMA) █████████'
+bool i_ma_display = input.bool(defval=false, title='Display', inline='EMA', group=gp_ma)
+int i_ma_len_1 = input.int(defval=20, title='Length', minval=1, group=gp_ma)
+int i_ma_len_2 = input.int(defval=50, title='Length', minval=1, group=gp_ma)
+int i_ma_len_3 = input.int(defval=100, title='Length', minval=1, group=gp_ma)
+int i_ma_len_4 = input.int(defval=200, title='Length', minval=1, group=gp_ma)
+
+g_macd = '███████████████████ MACD ███████████████████'
+bool i_macd_display = input.bool(defval=true, title='Display', inline='MACD', group=g_macd)
+int i_macd_fast_len = input.int(defval=3, title='Fast Length', minval=1, group=g_macd)
+int i_macd_slow_len = input.int(defval=9, title='Slow Length', minval=1, group=g_macd)
+int i_macd_signal_len = input.int(defval=15, title='Signal Smoothing', minval=1, group=g_macd)
+float i_macd_voffset = input.float(defval=0.5, title='Vertical Offset', step=0.1, group=g_macd)
+float i_macd_height = input.float(defval=0.7, title='Height', step=0.1, group=g_macd)
+
+g_stoc = '█████████████████ Stochastic █████████████████'
+bool i_stoc_display = input.bool(defval=true, title='Display', inline='STOC', group=g_stoc)
+int i_stoc_k_len = input.int(defval=5, title='%K Length', minval=1, group=g_stoc)
+int i_stoc_k_smooth = input.int(defval=3, title='%K Smoothing', minval=1, group=g_stoc)
+int i_stoc_d_smooth = input.int(defval=3, title='%D Smoothing', minval=1, group=g_stoc)
+int i_stoc_over_bought = input.int(defval=60, title='Over Bought', minval=1, group=g_stoc)
+int i_stoc_over_sold = input.int(defval=40, title='Over Sold', minval=1, group=g_stoc)
+float i_stoc_voffset = input.float(defval=1.8, title='Vertical Offset', step=0.1, group=g_stoc)// 1.1
+float i_stoc_height = input.float(defval=0.6, title='Height', step=0.1, group=g_stoc)//1.0
+
+g_vol = '██████████████████ Volume ██████████████████'
+bool i_vol_display = input.bool(defval=true, title='Display', inline='VOL', group=g_vol)
+int i_vol_ma_len = input.int(defval=20, title='MA Length', minval=1, group=g_vol)
+string i_vol_type   = input.string(defval='Regular Volume', title='Type', options=['Buying/Selling Volume', 'Regular Volume', 'None'], group = g_vol)
+i_vol_hoffset = 0
+float i_vol_voffset = input.float(defval=0.5, title='Vertical Offset', step=0.1, group=g_vol)
+float i_vol_height = input.float(defval=0.6, title='Height', step=0.1, group=g_vol)
+
+//_____________________________ Menu Indicators End
+
+//_____________________________ Menu Additional Fiters Start
+
+g_af = '███████████████ Additional Fiters ███████████████'
+tt_cp = "• The default value '0' means the filter is not applied." +
+ "\n• If the input is '80', it means the body covers over 80% of the candle."
+tt_atr = "• ATR helps filter out longer or more volatile signal candles." +
+ "\n• Change 'ATR Length' to 1 to avoid ATR filtering."
+tt_atr_mul = "• Higher multiplier value filters a longer or more volatile signal candle."
+float i_body_percent = input.float(defval=0, title='Body % Above', minval=0, maxval=100, tooltip=tt_cp, group=g_af) / 100
+int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', tooltip=tt_atr, group=g_af)
+float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, step=0.1, tooltip=tt_atr_mul, group=g_af)
+
+//_____________________________ Menu Additional Fiters End
+
+//_____________________________ Menu Table Start
+
+g_tb = '███████████████████ Table ███████████████████'
+string i_tbl_position = input.string(defval=position.top_right, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.small, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+
+//_____________________________ Menu Table End
+
+//_____________________________ Chart Settings Start
+
+g_ch = '████████████████ Chart Settings ████████████████'
+int i_display_len = input.int(defval=50, title='Display Length', minval=1, group=g_ch)
+color i_pos_col = input.color(defval=#26A69A, title='Positive', group=g_ch)
+color i_pos_light_col = input.color(defval=#B2DFDB, title='Positive Light', group=g_ch)
+color i_neg_light_col = input.color(defval=#FFCDD2, title='Negative Light', group=g_ch)
+color i_neg_col = input.color(defval=#FF5252, title='Negative', group=g_ch)
+color i_indicator_col = input.color(defval=#2962FF, title='Indicator', group=g_ch)
+color i_signal_col = input.color(defval=#FF6D00, title='Signal', group=g_ch)
+color i_neu_col = input.color(defval=#787B86, title='Neutral', group=g_ch)
+
+//_____________________________ Chart Settings End
+
+//_____________________________ 1. EMA 20, 50, 100, 200 Start
+
+float ema_1 = ta.ema(close, i_ma_len_1)
+float ema_2 = ta.ema(close, i_ma_len_2)
+float ema_3 = ta.ema(close, i_ma_len_3)
+float ema_4 = ta.ema(close, i_ma_len_4)
+
+plot(series=i_ma_display ? ema_1 : na, title='EMA 1', color=i_pos_col)
+plot(series=i_ma_display ? ema_2 : na, title='EMA 2', color=i_indicator_col)
+plot(series=i_ma_display ? ema_3 : na, title='EMA 3', color=i_signal_col)
+plot(series=i_ma_display ? ema_4 : na, title='EMA 4', color=i_neg_col)
+
+//_____________________________ 1. EMA 20, 50, 100, 200 End
+
+//_____________________________ 2. VWAP D Start
+
+float vwap_D = ta.vwap(close)
+plot(series=vwap_D, title='VWAP', color=i_neu_col)
+
+//_____________________________ 2. VWAP D End
+
+//_____________________________ 3. MACD: 3, 9, 15 Start
+
+[macdLine, signalLine, histLine] = ta.macd(close, i_macd_fast_len, i_macd_slow_len, i_macd_signal_len)
+
+//_____________________________ 3. MACD: 3, 9, 15 End
+
+//_____________________________ 4. Stochastic: 5, 3, 3 Start
+
+float stoc_k = ta.sma(ta.stoch(close, high, low, i_stoc_k_len), i_stoc_k_smooth)
+float stoc_d = ta.sma(stoc_k, i_stoc_d_smooth)
+
+//_____________________________ 4. Stochastic: 5, 3, 3 End
+
+//_____________________________ 5. Volume: 20 SMA Start
+
+vol_sma = ta.sma(volume, 20)
+
+//_____________________________ 5. Volume: 20 SMA End
+
+//_____________________________ Additional Filters Start
+
+// Momentum Candle
+body = math.abs(close - open)
+wick = high - low
+momentum_candle = body / wick >= i_body_percent
+
+// ATR
+filter_atr = high - low >= ta.atr(i_atr_length) * i_atr_multi
+
+//_____________________________ Additional Filters End
+
+//_____________________________ Signals Start
+
+// Signal Generation Function
+exrem(condition_1, condition_2) =>
+    var entry_signal = 0
+    entry_signal := condition_1 ? 1 : condition_2 ? -1 : entry_signal[1]
+    entry = entry_signal != entry_signal[1]
+    buy = entry and entry_signal == 1
+    sell = entry and entry_signal == -1
+    [buy, sell]
+
+// Condition
+short_cont = 
+ close < vwap_D and 
+ macdLine < 0 and 
+ stoc_k < 60 and 
+ filter_atr and
+ momentum_candle and
+ //volume > vol_sma and
+ barstate.isconfirmed
+
+long_cont = 
+ close > vwap_D and 
+ macdLine > 0 and 
+ stoc_k > 40 and 
+ filter_atr and
+ momentum_candle and
+ //volume > vol_sma and
+ barstate.isconfirmed
+
+[long_entry, short_entry] = exrem(long_cont, short_cont)
+
+// Plot 
+plotshape(series=short_entry, title='Short Signal', style=shape.triangledown, location=location.abovebar, color=i_neg_light_col, size=size.tiny)
+plotshape(series=long_entry, title='Long Signal', style=shape.triangleup, location=location.belowbar, color=i_pos_light_col, size=size.tiny)
+
+bgcolor(color=short_entry ? color.new(i_neg_light_col, 90) : long_entry ? color.new(i_pos_light_col, 90) : na, title='Signal Bgcolor', show_last=i_display_len)
+barcolor(color=short_cont ? i_neg_light_col : long_cont ? i_pos_light_col : na, title='Signal Candle', display=display.none)
+
+plotshape(series=short_cont, title='Short Shape', style=shape.diamond, location=location.top, color=color.new(i_neg_col, 50), size=size.tiny, display=display.none)
+plotshape(series=long_cont, title='Long Shape', style=shape.diamond, location=location.bottom, color=color.new(i_pos_col, 50), size=size.tiny, display=display.none)
+
+//_____________________________ Signals End
+
+//_____________________________ Overlay Charts Start 
+
+// Acknowledgement & Reference
+// Trader: 'dgtrd'
+// Indicator Title: 'Technical Analyst by DGT'
+// Indicator Link: 'https://www.tradingview.com/script/r2kuEi0l-Technical-Analyst-by-DGT/'
+
+// Functions  ----------------------------------------------------------------------------------- //
+
+f_drawLabelX(_x, _y, _text, _xloc, _yloc, _color, _style, _textcolor, _size, _textalign, _tooltip) =>
+    var id = label.new(_x, _y, _text, _xloc, _yloc, _color, _style, _textcolor, _size, _textalign, _tooltip)
+    label.set_text(id, _text)
+    label.set_tooltip(id, _tooltip)
+    label.set_xy(id, _x, _y)
+    label.set_textcolor(id, _textcolor)
+
+// -Calculations ================================================================================ //
+
+source   = close
+nzVolume = nz(volume)
+
+//------------------------------------------------------------------------------
+// Momentum : MACD Oscillator
+
+histColor = histLine >= 0 ? histLine[1] < histLine ? i_pos_col : i_pos_light_col : histLine[1] < histLine ? i_neg_light_col : i_neg_col
+
+//------------------------------------------------------------------------------
+// Volume
+
+volMa = ta.sma(nzVolume, i_vol_ma_len)
+
+B = nzVolume * (close - low) / (high - low)
+S = nzVolume * (high - close) / (high - low)
+
+// Draw Charts
+var a_lines       = array.new_line()
+var a_hist        = array.new_box()
+
+//i_display_len = 50
+priceHighest      = ta.highest(high, i_display_len)
+priceLowest       = ta.lowest (low , i_display_len)
+priceChangeRate   = (priceHighest - priceLowest) / priceHighest
+
+oscHighest        = 100//ta.highest(osc, i_display_len)
+macdHighest       = ta.highest(macdLine, i_display_len) - ta.lowest(macdLine, i_display_len)
+
+volumeMARate      = nzVolume / volMa
+volumeHighest     = ta.highest(nzVolume, i_display_len)
+bullCandle        = close > open
+
+if barstate.islast 
+    if array.size(a_lines) > 0
+        for i = 1 to array.size(a_lines)
+            line.delete(array.shift(a_lines))
+    
+    if array.size(a_hist) > 0
+        for i = 1 to array.size(a_hist)
+            box.delete(array.shift(a_hist))
+
+    if i_stoc_display
+        mid_line = math.avg(100, 0)
+        array.push(a_hist , box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + i_stoc_over_bought / oscHighest * priceChangeRate * i_stoc_height), 
+                                     bar_index                   , priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + i_stoc_over_bought / oscHighest * priceChangeRate * i_stoc_height), color.new(i_neg_col  , 75), 1))
+        array.push(a_hist , box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 +        mid_line / oscHighest * priceChangeRate * i_stoc_height), 
+                                     bar_index                   , priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 +        mid_line / oscHighest * priceChangeRate * i_stoc_height), color.new(i_neu_col  , 75), 1))
+        array.push(a_hist , box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 +   i_stoc_over_sold / oscHighest * priceChangeRate * i_stoc_height), 
+                                     bar_index                   , priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 +   i_stoc_over_sold / oscHighest * priceChangeRate * i_stoc_height), color.new(i_pos_col, 75), 1))
+        f_drawLabelX(bar_index + 3,                                priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 +        mid_line / oscHighest * priceChangeRate * i_stoc_height), 'STOC', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.tiny, text.align_center, '%stoc_k : ' + str.tostring(stoc_k, '#.##') + '\n%stoc_d : ' + str.tostring(stoc_d, '#.##'))
+
+    if i_macd_display
+        f_drawLabelX(bar_index + 3,  priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 +        50 / oscHighest * priceChangeRate * i_macd_height), 'MACD', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.tiny, text.align_center, '')//'macd : ' + str.tostring(macdLine, '#.##') + '\nsignal : ' + str.tostring(signalLine, '#.##'))
+    
+    if i_vol_type != 'None' 
+        f_drawLabelX(bar_index + 3,  priceHighest * (1 + priceChangeRate * i_vol_voffset), 'VOL', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.tiny, text.align_center, 'buying volume : ' + str.tostring(B / (B + S) * 100, '#.##') + '%\nselling volume : ' + str.tostring(S / (B + S) * 100, '#.##') + '%\nlast volume : ' + str.tostring(nzVolume, format.volume) + '\naverage volume : ' + str.tostring(volMa, format.volume))
+
+    for barIndex = 0 to i_display_len - 1
+        if array.size(a_lines) < 500
+
+            if i_stoc_display
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + stoc_k[barIndex]     / oscHighest * priceChangeRate * i_stoc_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + stoc_k[barIndex + 1] / oscHighest * priceChangeRate * i_stoc_height), xloc.bar_index, extend.none, i_indicator_col   , line.style_solid, 1))
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + stoc_d[barIndex]     / oscHighest * priceChangeRate * i_stoc_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_stoc_voffset) * (1 + stoc_d[barIndex + 1] / oscHighest * priceChangeRate * i_stoc_height), xloc.bar_index, extend.none, i_signal_col   , line.style_solid, 1))
+
+            if i_macd_display
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 + macdLine[barIndex]       / macdHighest * priceChangeRate * i_macd_height ), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 + macdLine[barIndex + 1]   / macdHighest * priceChangeRate * i_macd_height ), xloc.bar_index, extend.none, i_indicator_col   , line.style_solid, 1))
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 + signalLine[barIndex]     / macdHighest * priceChangeRate * i_macd_height ), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 + signalLine[barIndex + 1] / macdHighest * priceChangeRate * i_macd_height ), xloc.bar_index, extend.none, i_signal_col   , line.style_solid, 1))
+
+                array.push(a_hist , box.new (bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_macd_voffset), 
+                                             bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_macd_voffset) * (1 + histLine[barIndex] / macdHighest * priceChangeRate * i_macd_height), histColor[barIndex], 2))
+
+            if nzVolume
+                if i_vol_type != 'None' 
+                    array.push(a_hist , box.new (bar_index[barIndex] + i_vol_hoffset,  priceHighest * (1 + priceChangeRate * i_vol_voffset), 
+                                                 bar_index[barIndex] + i_vol_hoffset,  priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex] / volumeHighest * priceChangeRate * i_vol_height), i_vol_type == 'Buying/Selling Volume' ? color.new(i_pos_col, 0) : bullCandle[barIndex] ? color.new(i_pos_col, 0) : color.new(i_neg_col, 0), 2, bgcolor = i_vol_type == 'Buying/Selling Volume' ? color.new(i_pos_col, 0) : bullCandle[barIndex] ? color.new(i_pos_col, 0) : color.new(i_neg_col, 0)))
+                    if i_vol_type == 'Buying/Selling Volume'
+                        array.push(a_hist , box.new (bar_index[barIndex] + i_vol_hoffset,   priceHighest * (1 + priceChangeRate * i_vol_voffset), 
+                                                     bar_index[barIndex] + i_vol_hoffset,   priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + S[barIndex]            / volumeHighest * priceChangeRate * i_vol_height), color.new(i_neg_col, 0), 2, bgcolor = color.new(i_neg_col, 0)))
+                    // Voumme MA
+                    if i_vol_display
+                        array.push(a_lines, line.new(bar_index[barIndex] + i_vol_hoffset,     priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex]     / volumeHighest * priceChangeRate * i_vol_height / volumeMARate[barIndex]), 
+                                                   bar_index[barIndex + 1] + i_vol_hoffset, priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex + 1] / volumeHighest * priceChangeRate * i_vol_height / volumeMARate[barIndex + 1]), xloc.bar_index, extend.none, i_neu_col, line.style_solid, 1))
+
+//_____________________________ Overlay Charts End 
+
+//_____________________________ Overlay Charts Table Start 
+
+var table tbl = table.new(position=i_tbl_position, columns=2, rows=12, border_width=2)
+
+// Color
+col_macd = macdLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_macd_sig = signalLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_macd_hist = histLine > 0 and barstate.isconfirmed ? i_pos_col : i_neg_col
+
+col_stoc_k = stoc_k > i_stoc_over_sold and barstate.isconfirmed ? i_pos_col : stoc_k < i_stoc_over_bought and barstate.isconfirmed ? i_neg_col : i_neu_col
+col_stoc_d = stoc_d > i_stoc_over_sold and barstate.isconfirmed ? i_pos_col : stoc_d < i_stoc_over_bought and barstate.isconfirmed ? i_neg_col : i_neu_col
+
+col_vwap = close > vwap_D and barstate.isconfirmed ? i_pos_col : i_neg_col
+
+col_ema_20 = close > ema_1 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_ema_50 = close > ema_2 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_ema_100 = close > ema_3 and barstate.isconfirmed ? i_pos_col : i_neg_col
+col_ema_200 = close > ema_4 and barstate.isconfirmed ? i_pos_col : i_neg_col
+
+col_vol = volume > vol_sma and barstate.isconfirmed ? i_pos_col : i_neu_col
+
+// Function to populate cells in the table
+cell(int column, int row, string txt, color color) => 
+    table.cell(tbl, column, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 90), text_size=i_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast
+    cell(0, 0, "MACD", col_macd)
+    cell(0, 1, "MACD Sig", col_macd_sig)
+    cell(0, 2, "MACD His", col_macd_hist)
+    cell(0, 3, "Stoc", col_stoc_k)
+    cell(0, 4, "Stoc Sig", col_stoc_d)
+    cell(0, 5, "VWAP", col_vwap)
+    cell(0, 6, "20 EMA", col_ema_20)
+    cell(0, 7, "50 EMA", col_ema_50)
+    cell(0, 8, "100 EMA", col_ema_100)
+    cell(0, 9, "200 EMA", col_ema_200)
+    cell(0, 10, "Vol", col_vol)
+    cell(0, 11, "Vol SMA", col_vol)
+
+    cell(1, 0, str.tostring(macdLine, '#.##'), col_macd)
+    cell(1, 1, str.tostring(signalLine, '#.##'), col_macd_sig)
+    cell(1, 2, str.tostring(histLine, '#.##'), col_macd_hist)
+    cell(1, 3, str.tostring(stoc_k, '#.##'), col_stoc_k)
+    cell(1, 4, str.tostring(stoc_d, '#.##'), col_stoc_d)
+    cell(1, 5, str.tostring(vwap_D, '#.##'), col_vwap)
+    cell(1, 6, str.tostring(ema_1, '#.##'), col_ema_20)
+    cell(1, 7, str.tostring(ema_2, '#.##'), col_ema_50)
+    cell(1, 8, str.tostring(ema_3, '#.##'), col_ema_100)
+    cell(1, 9, str.tostring(ema_4, '#.##'), col_ema_200)
+    cell(1, 10, str.tostring((volume / 100000), '#.##') + ' L', col_vol)
+    cell(1, 11, str.tostring((vol_sma / 100000), '#.##') + ' L', col_vol)
+    
+//_____________________________ Overlay Charts Table Start 
+
+//_____________________________ Code End
+
+// Readme First:
+// 
+// About:
+// This is a BANKNIFTY option buying or scalping setup shared by trader Vijay S. Thakare on YouTube.
+// 
+// Strategy Reference Video:
+// Vijay Thakare at Traders Carnival Seminar:
+// Video Title: "Vijay Thakare: An Excellent Option Scalper Sharing His Knowledge @ Traders Carnival"
+// Video Link: https://www.youtube.com/watch?v=6INokexfeLc
+// 
+// Explanation Video from His YouTube Channel:
+// Video Title: "Setup Video"
+// Video Link: https://www.youtube.com/watch?v=KK5j1dgklIY&t=9150s
+// 
+// Strategy Type: Momentum
+// Bias: Strongly Directional
+// Trading Style: Scalping
+// Instrument: Option - Buying
+// Original Symbol: NSE:BANKNIFTY (Works with other symbols as well)
+// Timeframe: 5 minute
+// 
+// Risk Reward Ratio: 1:2
+// Stop Loss: Rs. 20 on the premium chart
+// Target: Rs. 40 on the premium chart
+// 
+// Charts Referred:
+// - BANKNIFTY Futures Chart
+// - BANKNIFTY Options Premium Chart
+// 
+// Indicator Used and Settings:
+// 1. EMA: Close, 20, 50, 100, 200
+// 2. VWAP: Daily VWAP
+// 3. MACD: Fast Length - 3, Slow Length - 9, Signal Smoothing - 15
+// 4. Stochastic: %K Length - 5, %K Smoothing - 3, %D Smoothing - 3
+// 
+// Long Entry Rules:
+// - Close above VWAP
+// - MACD above 0
+// - Stochastic above 40
+// - Consider VWAP, EMA 20, 50, 100, 200 are closer to each other
+// - Rising volume (optional)
+// 
+// Short Entry Rules:
+// - Close below VWAP
+// - MACD below 0
+// - Stochastic below 60
+// - Consider VWAP, EMA 20, 50, 100, 200 are closer to each other
+// - Rising volume (optional)
+// 
+// Personal Approach:
+// When entering trades, I often apply the "ICT Daily Bias" concept for continuous momentum runs.
+// Alternatively, I consider retracement or discount concepts like "ICTE FVG" or "OTE" for entry.
