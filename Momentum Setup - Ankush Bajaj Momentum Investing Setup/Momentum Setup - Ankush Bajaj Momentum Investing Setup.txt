@@ -1,0 +1,361 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title='Momentum Setup - Ankush Bajaj Momentum Investing Setup', shorttitle='AB Mom', overlay=true, max_bars_back=500, max_lines_count=500, max_boxes_count=500)
+
+//_____________________________ Menu Indicators Start
+
+g_pchg = '██████████████ 250 Candle % Change ██████████████'
+tt_pchg = 
+ "• Calculate the % change between the past 250th candle and the current candle." +
+ "\n• For a bullish trend, the input value is considered positive; for a bearish trend, it's negative." +
+ "\n• The default value is 8 for daily timeframe. For intraday timeframes like 5 minutes, change it to 2 or 4 or adjust as needed for other timeframes."
+
+float i_pchg_250 = input.float(defval=8, title='Above/Below %', minval=0, tooltip=tt_pchg, group=g_pchg)
+
+g_rsi = '███████████ Relative Strength Index (RSI) ███████████'
+bool i_rsi_display = input.bool(defval=true, title='Display', group=g_rsi)
+int i_rsi_len = input.int(defval=14, title='RSI Length', minval=1, group=g_rsi)
+int i_rsi_sma_len = input.int(defval=14, title='SMA Length', minval=1, group=g_rsi)
+int i_rsi_ob = input.int(defval=60, title='Overbought', minval=0, maxval=100, group=g_rsi)
+int i_rsi_os = input.int(defval=40, title='Oversold', minval=0, maxval=100, group=g_rsi)
+float i_rsi_voffset = input.float(defval=1.3, title='Vertical Offset', step=0.1, group=g_rsi)
+float i_rsi_height = input.float(defval=2, title='Height', step=0.1, group=g_rsi)
+
+g_mfi = '█████████████ Money Flow Index (MFI) █████████████'
+bool i_mfi_display = input.bool(defval=true, title='Display', group=g_mfi)
+int i_mfi_len = input.int(defval=14, title='MFI Length', minval=1, group=g_mfi)
+int i_mfi_ob = input.int(defval=60, title='Overbought', minval=0, maxval=100, group=g_mfi)
+int i_mfi_os = input.int(defval=40, title='Oversold', minval=0, maxval=100, group=g_mfi)
+float i_mfi_voffset = input.float(defval=1.6, title='Vertical Offset', step=0.1, group=g_mfi)// 1.1
+float i_mfi_height = input.float(defval=1, title='Height', step=0.1, group=g_mfi)//1.0
+
+g_cci = '██████████ Commodity Channel Index (CCI) ██████████'
+bool i_cci_display = input.bool(defval=true, title='Display', group=g_cci)
+int i_cci_len = input.int(defval=20, title='CCI Length', minval=1, group=g_cci)
+int i_cci_sma_len = input.int(defval=5, title='SMA Length', minval=1, group=g_cci)
+int i_cci_ob = input.int(defval=100, title='Overbought', minval=0, group=g_cci)
+int i_cci_os = input.int(defval=-100, title='Oversold', maxval=0, group=g_cci)
+float i_cci_voffset = input.float(defval=1.8, title='Vertical Offset', step=0.1, group=g_cci)
+float i_cci_height = input.float(defval=0.2, title='Height', step=0.1, group=g_cci)
+
+g_vol = '██████████████████ Volume ██████████████████'
+tt_vm = 
+ "• The value shifts the volume moving average upward." +
+ "\n• The default value of 1 means no multiplier is applied, but a multiplier of 5 indicates higher volume according to the strategy."
+
+bool i_vol_display = input.bool(defval=true, title='Display', inline='VOL', group=g_vol)
+string i_vol_type = input.string(defval='Regular Volume', title='Type', options=['Buying/Selling Volume', 'Regular Volume', 'None'], group=g_vol)
+int i_vol_ma_len = input.int(defval=20, title='MA Length', minval=1, group=g_vol)
+float i_vol_ma_multi = input.float(defval=5, title='MA Multiplier (x)', minval=1, tooltip=tt_vm, group=g_vol)
+i_vol_hoffset = 0
+float i_vol_voffset = input.float(defval=0.3, title='Vertical Offset', step=0.1, group=g_vol)
+float i_vol_height = input.float(defval=0.6, title='Height', step=0.1, group=g_vol)
+
+g_st = '█████████████████ Supertrend █████████████████'
+bool i_st_display = input.bool(defval=true, title='Display', group=g_st)
+int i_st_atr_period = input.int(defval=10, title="ATR Length", minval=1, group=g_st)
+float i_st_factor = input.float(defval=3.0, title="Factor", minval=0.01, step=0.01, group=g_st)
+
+//_____________________________ Menu Indicators End
+
+//_____________________________ Menu Table Start
+
+g_tb = '███████████████████ Table ███████████████████'
+string i_tbl_position = input.string(defval=position.top_right, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_tb)
+string i_tbl_text_size = input.string(defval=size.normal, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_tb)
+
+//_____________________________ Menu Table End
+
+//_____________________________ Chart Settings Start
+
+g_ch = '████████████████ Chart Settings ████████████████'
+int i_display_len = input.int(defval=50, title='Display Length', minval=1, group=g_ch)
+color i_pos_col = input.color(defval=#26A69A, title='Positive', group=g_ch)
+color i_pos_light_col = input.color(defval=#B2DFDB, title='Positive Light', group=g_ch)
+color i_neg_light_col = input.color(defval=#FFCDD2, title='Negative Light', group=g_ch)
+color i_neg_col = input.color(defval=#FF5250, title='Negative', group=g_ch)
+color i_indicator_col = input.color(defval=#2962FF, title='Indicator', group=g_ch)
+color i_signal_col = input.color(defval=#FF6D00, title='Signal', group=g_ch)
+color i_neu_col = input.color(defval=#787B86, title='Neutral', group=g_ch)
+
+//_____________________________ Chart Settings End
+
+//_____________________________ 1. Percentage Change 250 Start
+
+float pchg = (ta.change(close, 250) / close) * 100
+ 
+//_____________________________ 1. Percentage Change 250 end
+
+//_____________________________ 2. RSI Start
+
+float rsi = ta.rsi(close, i_rsi_len)
+float rsi_sma = ta.sma(rsi, i_rsi_sma_len)
+
+//_____________________________ 2. RSI End
+
+//_____________________________ 3. MFI Start
+
+float mfi = ta.mfi(hlc3, i_mfi_len)
+
+//_____________________________ 3. MFI End
+
+//_____________________________ 4. CCI Start
+
+float cci = ta.cci(hlc3, i_cci_len)
+float cci_sma = ta.sma(cci, i_cci_sma_len)
+
+//_____________________________ 4. CCI End
+
+//_____________________________ 5. Volume: 20 SMA Start
+
+vol_sma = ta.ema(volume, i_vol_ma_len) * i_vol_ma_multi
+
+//_____________________________ 5. Volume: 20 SMA End
+
+//_____________________________ 6. Supertrend Start
+
+[supertrend, direction] = ta.supertrend(i_st_factor, i_st_atr_period)
+
+supertrend := i_st_display and barstate.isfirst ? na : supertrend
+upTrend = plot(series=i_st_display and direction < 0 ? supertrend : na, title="Supertrend Up", color=i_pos_col, style=plot.style_linebr)
+downTrend = plot(series=i_st_display and direction < 0 ? na : supertrend, title="Supertrend Down", color=i_neg_col, style=plot.style_linebr)
+bodyMiddle = plot(series=i_st_display and barstate.isfirst ? na : (open + close) / 2, title="Body Middle", display=display.none)
+
+//fill(plot1=bodyMiddle, plot2=upTrend, color=color.new(i_pos_col, 90), fillgaps=false)
+//fill(plot1=bodyMiddle, plot2=downTrend, color=color.new(i_neg_col, 90), fillgaps=false)
+
+//_____________________________ 6. Supertrend End
+
+//_____________________________ Signals Start
+
+// Condition
+short_cont = 
+ //ta.crossunder(pchg, (-i_pchg_250)) and 
+ pchg < (-i_pchg_250) and 
+ rsi < i_rsi_os and 
+ mfi < i_mfi_os and 
+ cci < i_cci_os and
+ volume > vol_sma and
+ barstate.isconfirmed
+
+long_cont = 
+ //ta.crossover(pchg, i_pchg_250) and 
+ pchg > i_pchg_250 and 
+ rsi > i_rsi_ob and 
+ mfi > i_mfi_ob and 
+ cci > i_cci_ob and
+ volume > vol_sma and
+ barstate.isconfirmed
+
+// Plot 
+plotshape(series=short_cont, title='Short Signal', style=shape.triangledown, location=location.abovebar, color=i_neg_light_col, size=size.tiny)
+plotshape(series=long_cont, title='Long Signal', style=shape.triangleup, location=location.belowbar, color=i_pos_light_col, size=size.tiny)
+
+bgcolor(color=short_cont ? color.new(i_neg_light_col, 90) : long_cont ? color.new(i_pos_light_col, 90) : na, title='Signal Bgcolor', show_last=i_display_len)
+barcolor(color=short_cont ? i_neg_light_col : long_cont ? i_pos_light_col : na, title='Signal Candle')
+
+//_____________________________ Signals End
+
+//_____________________________ Overlay Charts Start 
+
+// Acknowledgement & Reference
+// Trader: 'dgtrd'
+// Indicator Title: 'Technical Analyst by DGT'
+// Indicator Link: 'https://www.tradingview.com/script/r2kuEi0l-Technical-Analyst-by-DGT/'
+
+// Functions  ----------------------------------------------------------------------------------- //
+
+f_drawLabelX(_x, _y, _text, _xloc, _yloc, _color, _style, _textcolor, _size, _textalign, _tooltip) =>
+    var id = label.new(_x, _y, _text, _xloc, _yloc, _color, _style, _textcolor, _size, _textalign, _tooltip)
+    label.set_text(id, _text)
+    label.set_tooltip(id, _tooltip)
+    label.set_xy(id, _x, _y)
+    label.set_textcolor(id, _textcolor)
+
+// -Calculations ================================================================================ //
+
+source   = close
+nzVolume = nz(volume)
+
+//------------------------------------------------------------------------------
+// Volume
+
+//vol_sma = ta.sma(nzVolume, i_vol_ma_len)
+
+B = nzVolume * (close - low) / (high - low)
+S = nzVolume * (high - close) / (high - low)
+
+// Draw Charts
+var a_lines       = array.new_line()
+var a_hist        = array.new_box()
+
+//i_display_len = 50
+priceHighest      = ta.highest(high, i_display_len)
+priceLowest       = ta.lowest (low , i_display_len)
+priceChangeRate   = (priceHighest - priceLowest) / priceHighest
+
+oscHighest        = 100//ta.highest(osc, i_display_len)
+
+volumeMARate      = nzVolume / vol_sma
+volumeHighest     = ta.highest(nzVolume, i_display_len)
+bullCandle        = close > open
+
+if barstate.islast 
+    if array.size(a_lines) > 0
+        for i = 1 to array.size(a_lines)
+            line.delete(array.shift(a_lines))
+    
+    if array.size(a_hist) > 0
+        for i = 1 to array.size(a_hist)
+            box.delete(array.shift(a_hist))
+
+    if i_mfi_display
+        mid_line = math.avg(100, 0)
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + i_mfi_ob / oscHighest * priceChangeRate * i_mfi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + i_mfi_ob / oscHighest * priceChangeRate * i_mfi_height), color.new(i_pos_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_mfi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_mfi_height), color.new(i_neu_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + i_mfi_os / oscHighest * priceChangeRate * i_mfi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + i_mfi_os / oscHighest * priceChangeRate * i_mfi_height), color.new(i_neg_col, 75), 1))
+        f_drawLabelX(                bar_index + 3          , priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_mfi_height), 'MFI', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.small, text.align_center, str.tostring(mfi, '#.##'))
+
+    if i_rsi_display
+        mid_line = math.avg(100, 0)
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + i_rsi_ob / oscHighest * priceChangeRate * i_rsi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + i_rsi_ob / oscHighest * priceChangeRate * i_rsi_height), color.new(i_pos_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_rsi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_rsi_height), color.new(i_neu_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + i_rsi_os / oscHighest * priceChangeRate * i_rsi_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + i_rsi_os / oscHighest * priceChangeRate * i_rsi_height), color.new(i_neg_col, 75), 1))
+        f_drawLabelX(                bar_index + 3          , priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + mid_line / oscHighest * priceChangeRate * i_rsi_height), 'RSI', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.small, text.align_center, str.tostring(rsi, '#.##'))
+
+    if i_cci_display
+        mid_line = math.avg(100, 0)
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + i_cci_ob / oscHighest * priceChangeRate * i_cci_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + i_cci_ob / oscHighest * priceChangeRate * i_cci_height), color.new(i_pos_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_cci_voffset), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_cci_voffset), color.new(i_neu_col, 75), 1))
+        array.push(a_hist, box.new (bar_index[i_display_len], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + i_cci_os / oscHighest * priceChangeRate * i_cci_height), 
+                                     bar_index              , priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + i_cci_os / oscHighest * priceChangeRate * i_cci_height), color.new(i_neg_col, 75), 1))
+        f_drawLabelX(                bar_index + 3          , priceLowest * (1 - priceChangeRate * i_cci_voffset), 'CCI', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.small, text.align_center, str.tostring(cci, '#.##'))
+
+    if i_vol_type != 'None' 
+        f_drawLabelX(                bar_index + 3          , priceHighest * (1 + priceChangeRate * i_vol_voffset), 'VOL', xloc.bar_index, yloc.price, #00000000, label.style_label_left, chart.fg_color, size.small, text.align_center, 'Buy Vol : ' + str.tostring(B / (B + S) * 100, '#.##') + '%\nSell Vol : ' + str.tostring(S / (B + S) * 100, '#.##') + '%\nLast Vol : ' + str.tostring(nzVolume, format.volume) + '\nAvg Vol : ' + str.tostring(vol_sma, format.volume))
+
+    for barIndex = 0 to i_display_len - 1
+        if array.size(a_lines) < 500
+
+            if i_mfi_display
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + mfi[barIndex]     / oscHighest * priceChangeRate * i_mfi_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_mfi_voffset) * (1 + mfi[barIndex + 1] / oscHighest * priceChangeRate * i_mfi_height), xloc.bar_index, extend.none, i_indicator_col   , line.style_solid, 1))
+
+            if i_rsi_display
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + rsi[barIndex]     / oscHighest * priceChangeRate * i_rsi_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + rsi[barIndex + 1] / oscHighest * priceChangeRate * i_rsi_height), xloc.bar_index, extend.none, i_indicator_col   , line.style_solid, 1))
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + rsi_sma[barIndex] / oscHighest * priceChangeRate * i_rsi_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_rsi_voffset) * (1 + rsi_sma[barIndex + 1] / oscHighest * priceChangeRate * i_rsi_height), xloc.bar_index, extend.none, i_signal_col   , line.style_solid, 1))
+
+            if i_cci_display
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + cci[barIndex]     / oscHighest * priceChangeRate * i_cci_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + cci[barIndex + 1] / oscHighest * priceChangeRate * i_cci_height), xloc.bar_index, extend.none, i_indicator_col   , line.style_solid, 1))
+                array.push(a_lines, line.new(bar_index[barIndex], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + cci_sma[barIndex] / oscHighest * priceChangeRate * i_cci_height), 
+                                         bar_index[barIndex + 1], priceLowest * (1 - priceChangeRate * i_cci_voffset) * (1 + cci_sma[barIndex + 1] / oscHighest * priceChangeRate * i_cci_height), xloc.bar_index, extend.none, i_signal_col   , line.style_solid, 1))
+
+            if nzVolume
+                if i_vol_type != 'None' 
+                    array.push(a_hist, box.new (bar_index[barIndex] + i_vol_hoffset,  priceHighest * (1 + priceChangeRate * i_vol_voffset), 
+                                                 bar_index[barIndex] + i_vol_hoffset,  priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex] / volumeHighest * priceChangeRate * i_vol_height), i_vol_type == 'Buying/Selling Volume' ? color.new(i_pos_col, 0) : bullCandle[barIndex] ? color.new(i_pos_col, 0) : color.new(i_neg_col, 0), 2, bgcolor = i_vol_type == 'Buying/Selling Volume' ? color.new(i_pos_col, 0) : bullCandle[barIndex] ? color.new(i_pos_col, 0) : color.new(i_neg_col, 0)))
+                    if i_vol_type == 'Buying/Selling Volume'
+                        array.push(a_hist, box.new (bar_index[barIndex] + i_vol_hoffset,   priceHighest * (1 + priceChangeRate * i_vol_voffset), 
+                                                     bar_index[barIndex] + i_vol_hoffset,   priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + S[barIndex]            / volumeHighest * priceChangeRate * i_vol_height), color.new(i_neg_col, 0), 2, bgcolor = color.new(i_neg_col, 0)))
+                    // Voumme MA
+                    if i_vol_display
+                        array.push(a_lines, line.new(bar_index[barIndex] + i_vol_hoffset,     priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex]   / volumeHighest * priceChangeRate * i_vol_height / volumeMARate[barIndex]), 
+                                                     bar_index[barIndex + 1] + i_vol_hoffset, priceHighest * (1 + priceChangeRate * i_vol_voffset) * (1 + nzVolume[barIndex + 1] / volumeHighest * priceChangeRate * i_vol_height / volumeMARate[barIndex + 1]), xloc.bar_index, extend.none, i_neu_col, line.style_solid, 1))
+
+//_____________________________ Overlay Charts End 
+
+//_____________________________ Overlay Charts Table Start 
+
+var table tbl = table.new(position=i_tbl_position, columns=2, rows=5, border_width=2)
+
+// Color
+col_pchg = pchg > i_pchg_250 ? i_pos_col : pchg < (-i_pchg_250) ? i_neg_col : i_neu_col
+col_rsi = rsi > i_rsi_ob ? i_pos_col : rsi < i_rsi_os ? i_neg_col : i_neu_col
+col_mfi = mfi > i_mfi_ob ? i_pos_col : mfi < i_mfi_os ? i_neg_col : i_neu_col
+col_cci = cci > i_cci_ob ? i_pos_col : cci < i_cci_os ? i_neg_col : i_neu_col
+col_vol = volume > vol_sma ? i_pos_col : i_neu_col
+
+// Function to populate cells in the table
+cell(int column, int row, string txt, color color) => 
+    table.cell(tbl, column, row, text = txt, text_color = color, text_halign=text.align_left, bgcolor = color.new(color, 90), text_size=i_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast
+    cell(0, 0, "%Chg", col_pchg)
+    cell(0, 1, "RSI", col_rsi)
+    cell(0, 2, "MFI", col_mfi)
+    cell(0, 3, "CCI", col_cci)
+    cell(0, 4, "Vol", col_vol)
+
+    cell(1, 0, str.tostring(pchg, '#.##'), col_pchg)
+    cell(1, 1, str.tostring(rsi, '#.##'), col_rsi)
+    cell(1, 2, str.tostring(mfi, '#.##'), col_mfi)
+    cell(1, 3, str.tostring(cci, '#.##'), col_cci)
+    cell(1, 4, str.tostring((volume / 100000), '#.##') + ' L', col_vol)
+    
+//_____________________________ Overlay Charts Table Start 
+
+//_____________________________ Code End
+
+// Readme First:
+// 
+// About:
+// This is a Momentum Investing Strategy Setup shared by trader Ankush Bajaj.
+// The original video is based on the daily timeframe for long-term investment.
+// This strategy can also be adapted for lower timeframes.
+// To adapted the strategy for lower timeframes like 5 minutes, change the 'Above/Below %' to 2 or 4 or adjust as needed according your timeframe.
+// Example: For 5 min timeframe use 'Above/Below %' as 2. For 1hr timeframe use 'Above/Below %' as 4.
+// Also adjust the 'MA Multiplier (x)' value. Default is 5x. This can be adjusted to 2 times, 3 times etc.
+// 
+// Strategy Reference Video:
+// Video Title: "Momentum Investing Strategies | Understand Different Types of Momentum Strategies | Ep 141"
+// Video Link: https://www.youtube.com/watch?v=-uEEmnFtDIw
+// Video Title: "Momentum Investing using Technical Indicators | Ep 142 | Samco Securities"
+// Video Link: https://www.youtube.com/watch?v=zmpsx7BpzvU&t=1154s
+// 
+// Strategy Type: Momentum
+// Bias: Strongly Directional
+// Trading Style: Investment
+// Instrument: Any
+// Original Symbol: Any
+// Timeframe: Daily (default)
+// 
+// Indicator Used and Settings:
+// 1. % Change of last 250 candle
+// 2. RSI 14
+// 3. MFI 14
+// 4. CCI 20
+// 5. Volume 20 EMA
+// 
+// Long Entry Rules (As per the video):
+// - Daily Timeframe
+// - % Change of 250 Candle > 8
+// - RSI above 60
+// - MFI above 60
+// - CCI above 100
+// - Volume > EMA 20 of Volume * 5
+// - Market Cap > 1000 Crore
+// - Price > Rs.50
+// 
+// Short Entry Rules (Not mentioned in the video):
+// - Daily Timeframe
+// - % Change of 250 Candle < -8
+// - RSI below 40
+// - MFI below 40
+// - CCI below -100
+// - Volume > EMA 20 of Volume * 5
+// - Market Cap > 1000 Crore
+// - Price > Rs.50
