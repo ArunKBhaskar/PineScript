@@ -10,11 +10,28 @@ g_scrtb = '█████████████████ Screener ██�
 
 string i_scr_choose = input.string(defval='Continuous Signals', title='Screening Method', options=['Continuous Signals', 'Flip Signals'], group=g_scrtb)
 
+tt_is = "• Reads only up to first 40 symbols." +
+     "\n• Total characters cannot exceed 4096." +
+     "\n• Use comma as delimiter without any space." +
+     "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+
+string i_symbols = input.text_area(
+ defval="NSE:NIFTY,NSE:NIFTYJR,NSE:BANKNIFTY,NSE:CNXFINANCE,NSE:NIFTY_MID_SELECT,BSE:SENSEX,BSE:SNSX50,BSE:BANK,NSE:ASHOKLEY,NSE:BANKBARODA,NSE:BANKINDIA,NSE:BEL,NSE:BHEL,NSE:CANBK,NSE:COALINDIA,NSE:ENGINERSIN,NSE:GAIL,NSE:HINDCOPPER,NSE:HUDCO,NSE:IEX,NSE:IRCON,NSE:IRFC,NSE:JSWINFRA,NSE:MOTHERSON,NSE:NATIONALUM,NSE:NBCC,NSE:NCC,NSE:NHPC,NSE:NMDC,NSE:NTPC,NSE:ONGC,NSE:PFC,NSE:PNB,NSE:POWERGRID,NSE:RAILTEL,NSE:RVNL,NSE:SAIL,NSE:SJVN,NSE:UNIONBANK,NSE:VEDL,NSE:ZEEL,NSE:ZOMATO", 
+ title="Paste Symbols", tooltip=tt_is, group=g_scrtb)
+
+string i_scr_direction = input.string(defval='Both', title='Direction', options=['Both', 'Long', 'Short'], inline='tb_1', group=g_scrtb)
+bool i_scr_show_bull  = input.bool(defval=true, title='Only Long', inline='tb_2', group=g_scrtb)
+bool i_scr_show_bear  = input.bool(defval=true, title='Only Short', inline='tb_2', group=g_scrtb)
+
+int i_scr_tbl_disp_rows = input.int(defval=12, title='Display Rows', minval=0, maxval=100, group=g_scrtb)
+string i_scr_tbl_position = input.string(defval=position.bottom_left, title='Table Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_scrtb)
+string i_scr_tbl_text_size = input.string(defval=size.small, title='Table Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_scrtb)
+
 //_____________________________ Menu Screener End
 
 //_____________________________ Menu Indicators Start
 
-g_st = '████████████████ Supertrend ████████████████'
+g_st = '█████████████████ Supertrend █████████████████'
 //bool i_st_display = input.bool(defval=true, title='Display', group=g_st)
 int i_st_atr_period = input.int(defval=10, title="ATR Length", minval=1, group=g_st)
 float i_st_factor = input.float(defval=3.0, title="Factor", minval=0.01, step=0.01, group=g_st)
@@ -32,7 +49,7 @@ bool i_vtwap_display = input.bool(defval=true, title='Display', group=g_vwap)
 string i_vtwap_choice = input.string(defval = "VWAP", title="Choose", options=["VWAP", "TWAP"], tooltip=tt_vt, group=g_vwap)
 string i_vtwap_timeframe = input.timeframe(defval = "1D", title = "Timeframe", group=g_vwap)
 
-g_macd = '██████████████████ MACD ██████████████████'
+g_macd = '███████████████████ MACD ███████████████████'
 bool i_macd_display = input.bool(defval=true, title='Display', group=g_macd)
 int i_macd_fast_len = input.int(defval=3, title='Fast Length', minval=1, group=g_macd)
 int i_macd_slow_len = input.int(defval=9, title='Slow Length', minval=1, group=g_macd)
@@ -40,7 +57,7 @@ int i_macd_signal_len = input.int(defval=15, title='Signal Smoothing', minval=1,
 float i_macd_voffset = input.float(defval=0.5, title='Vertical Offset', step=0.1, group=g_macd)
 float i_macd_height = input.float(defval=0.7, title='Height', step=0.1, group=g_macd)
 
-g_stoc = '████████████████ Stochastic ████████████████'
+g_stoc = '█████████████████ Stochastic █████████████████'
 bool i_stoc_display = input.bool(defval=true, title='Display', group=g_stoc)
 int i_stoc_k_len = input.int(defval=5, title='%K Length', minval=1, group=g_stoc)
 int i_stoc_k_smooth = input.int(defval=3, title='%K Smoothing', minval=1, group=g_stoc)
@@ -62,18 +79,20 @@ float i_vol_height = input.float(defval=0.6, title='Height', step=0.1, group=g_v
 
 //_____________________________ Menu Additional Fiters Start
 
-g_af = '██████████████ Additional Fiters ██████████████'
+g_af = '███████████████ Additional Fiters ███████████████'
 
-tt_atr = "• ATR helps filter out longer or more volatile signal candles."
-tt_atr_mul = "• Higher multiplier value filters a longer or more volatile signal candle."
+tt_atr = "ATR helps filter out longer or more volatile signal candles."
+tt_atr_mul = "Higher multiplier value filters a longer or more volatile signal candle."
 
-tt_bf = "• If the input is '80', it means the body covers over 80% of the candle."
+tt_bf = "If the input is '80', it means the body covers over 80% of the candle."
 
-tt_bs = '• 2 means the candle is 2 times larger than the previous candle.'
+tt_bs = '2 means the candle is 2 times larger than the previous candle.'
 
-tt_vol = "• Filter out a candle when its volume is greater than the SMA of the volume."
+tt_vol = "Filter out a candle when its volume is greater than the SMA of the volume."
 
-tt_rv = "• Filter out a candle when its volume is greater than the Relative Volume."
+tt_rv = "Filter out a candle when its volume is greater than the Relative Volume."
+
+tt_tf = "Filter out a signals between the given Time."
 
 bool i_atr_filter = input.bool(defval=false, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
 int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af)
@@ -91,6 +110,12 @@ int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length',
 bool i_rel_vol_filter = input.bool(defval=false, title='Apply Relative Volume Filter', tooltip=tt_rv, group=g_af)
 int i_rel_vol_avg_vol_len = input.int(defval=90, title='Relative Volume Length', minval=2, group=g_af)
 float i_rel_vol_avg_vol_multi = input.float(defval=2, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
+
+bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
+int i_hour_1 = input.int(defval=9, minval=0, title='Time From', inline='t_1', group=g_af)
+int i_minute_1 = input.int(defval=15, minval=0, title=':', inline='t_1', group=g_af)
+int i_hour_2 = input.int(defval=10, minval=0, title='Time To ', inline='t_2', group=g_af)
+int i_minute_2 = input.int(defval=15, minval=0, title=':', inline='t_2', group=g_af)
 
 //_____________________________ Menu Additional Fiters End
 
@@ -214,9 +239,12 @@ bool rel_vol_filter = true
 if i_rel_vol_filter
     rel_vol_filter := relative_volume > rel_vol_sma_multiplier
 
-//_____________________________ Additional Filters End
+// Time Filter
+bool time_filter = true
+if i_time_filter
+    time_filter := (hour > i_hour_1 or (hour == i_hour_1 and minute >= i_minute_1)) and (hour < i_hour_2 or (hour == i_hour_2 and minute < i_minute_2))
 
-//_____________________________ Signals Start
+//_____________________________ Additional Filters End
 
 //_____________________________ Retracement Signals Start
 // Short Retracement Start
@@ -238,6 +266,7 @@ short_ret_cont_2 =
  body_size_filter and
  volume_filter and
  rel_vol_filter and
+ time_filter and
  barstate.isconfirmed
 
 // Short Retracement Trigger
@@ -273,6 +302,7 @@ long_ret_cont_2 =
  body_size_filter and
  volume_filter and
  rel_vol_filter and
+ time_filter and
  barstate.isconfirmed
 
 // Long  Retracement Trigger
@@ -288,10 +318,16 @@ long_ret_trigger = bull_break_current_state == 2 ? true : false
 
 //___________________________ Long Retracement End
 
+
+//_______________________ Signals End
+
+
 //___________________________ Plot Retracements
 
 plotshape(series=i_scr_choose == 'Continuous Signals' and short_ret_trigger ? 3 : na, title='Short Continuous', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny)
 plotshape(series=i_scr_choose == 'Continuous Signals' and long_ret_trigger ? 3 : na, title='Long Continuous', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny)
+
+bgcolor(color=i_scr_choose == 'Continuous Signals' and short_ret_trigger ? color.new(i_neg_light_color, 90) : i_scr_choose == 'Continuous Signals' and long_ret_trigger ? color.new(i_pos_light_color, 90) : na, title='Continuous Bgcolor', show_last=i_display_len)
 barcolor(color=i_scr_choose == 'Continuous Signals' and short_ret_trigger ? i_neg_light_color : i_scr_choose == 'Continuous Signals' and long_ret_trigger ? i_pos_light_color : na, title='Continuous Candle')
 
 //_____________________________ Retracement Signals End
