@@ -60,7 +60,7 @@ float i_pchg_above_below = input.float(defval=2, title='% Change Above/Below +/-
 bool i_vol_pchg_filter = input.bool(defval=false, title='Apply Volume % Change Filter', tooltip=tt_vpchg, group=g_af)
 float i_vol_pchg_above = input.float(defval=0, title='Volume % Change Above', minval=0, group=g_af)
 
-bool i_atr_filter = input.bool(defval=false, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
+bool i_atr_filter = input.bool(defval=true, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
 int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af)
 float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, group=g_af)
 
