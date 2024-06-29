@@ -1,0 +1,417 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title='Momentum Setup: RSI Direction Confirmation', shorttitle='RSI Dir Conf', overlay=false, max_bars_back=500, max_lines_count=500, max_boxes_count=500)
+
+//_____________________________ Menu Screener Start
+
+g_scrtb = '█████████████████ Scanner █████████████████'
+
+string i_scr_choose = input.string(defval='Continuous Signals', title='Scanning Method', options=['Continuous Signals', 'Flip Signals'], group=g_scrtb)
+
+bool i_scr_show_long  = input.bool(defval=true, title='Long Signals', inline='tb_2', group=g_scrtb)
+bool i_scr_show_short  = input.bool(defval=true, title='Short Signals', inline='tb_2', group=g_scrtb)
+
+//_____________________________ Menu Screener End
+
+//_____________________________ Menu Indicators Start
+
+gp_ma = '████████ Exponential Moving Average (EMA) ████████'
+int i_ma_length = input.int(defval=9, title='EMA Length', minval=1, group=gp_ma)
+
+g_rsi = '██████████ Relative Strength Index (RSI) ██████████'
+int i_rsi_length = input.int(defval=14, title='RSI Length', minval=1, group=g_rsi)
+float i_rsi_source = input.source(defval=close, title="RSI Source", group=g_rsi)
+int i_rsi_ma_length = input.int(defval=14, title='SMA Length', minval=1, group=g_rsi)
+
+//_____________________________ Menu Indicators End
+
+//_____________________________ Menu Additional Fiters Start
+
+g_af = '███████████████ Additional Fiters ███████████████'
+tt_pchg = 
+ "• If '% Change Above/Below +/-' is 4, it means relative volume is considered when the price change is above 4%." +
+ "\n• A value of 4% is positive for bullish scenarios and negative for bearish scenarios." +
+ "\n• The percentage change is calculated using cumulative percentage change, so there might be a minor difference between the actual and displayed percentage change."
+tt_vpchg = 
+ "• If 'Volume % Change Above' is 0, it means Relative Volume is considered when today's volume is greater than the previous day's volume." +
+ "\n• For 'Screening Method' choice 'Retracement to EMA,' the 'Apply Volume % Change Filter' can be unchecked." +
+ "\n• A 'Volume % Change Above' 300% or more often indicates a major breakout, which may happen today or the next day." +
+ "\n• The volume percentage change is calculated using cumulative percentage change, so there might be a minor difference between the actual and displayed percentage change."
+tt_atr = 
+ "• ATR helps filter out longer or more volatile signal candles."
+tt_atr_mul =
+ "• Higher multiplier value filters a longer or more volatile signal candle."
+tt_bf =
+ "• If the input is '80', it means the body covers over 80% of the candle."
+tt_bs =
+ "• 2 means the candle is 2 times larger than the previous candle."
+tt_vol =
+ "• Filter out a candle when its volume is greater than the SMA of the volume."
+tt_rv =
+ "• Filter out a candle when its volume is greater than the Relative Volume."
+tt_tf =
+ "• Filter out a signals between the given Time."
+
+bool i_pchg_filter = input.bool(defval=false, title='Apply % Change Filter', tooltip=tt_pchg, group=g_af)
+float i_pchg_above_below = input.float(defval=2, title='% Change Above/Below +/-', minval=0, group=g_af)
+
+bool i_vol_pchg_filter = input.bool(defval=false, title='Apply Volume % Change Filter', tooltip=tt_vpchg, group=g_af)
+float i_vol_pchg_above = input.float(defval=0, title='Volume % Change Above', minval=0, group=g_af)
+
+bool i_atr_filter = input.bool(defval=false, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
+int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af)
+float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, group=g_af)
+
+bool i_body_filter = input.bool(defval=false, title='Apply Body % Filter', tooltip=tt_bf, group=g_af)
+float i_body_percent = input.float(defval=80, title='Body % Above', minval=0, maxval=100, group=g_af) / 100
+
+bool i_body_size_filter = input.bool(defval=false, title='Apply Body Size Filter', tooltip=tt_bs, group=g_af)
+int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)', minval=0,  group=g_af)
+
+bool i_volume_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vol, group=g_af)
+int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length', group=g_af)
+
+bool i_rel_vol_filter = input.bool(defval=false, title='Apply Continuous Signals Filter', tooltip=tt_rv, group=g_af)
+int i_rel_vol_avg_vol_len = input.int(defval=90, title='Continuous Signals Length', minval=2, group=g_af)
+float i_rel_vol_avg_vol_multi = input.float(defval=5, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
+
+bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
+int i_hour_1 = input.int(defval=9, minval=0, title='Time From', inline='t_1', group=g_af)
+int i_minute_1 = input.int(defval=15, minval=0, title=':', inline='t_1', group=g_af)
+int i_hour_2 = input.int(defval=10, minval=0, title='Time To ', inline='t_2', group=g_af)
+int i_minute_2 = input.int(defval=15, minval=0, title=':', inline='t_2', group=g_af)
+
+//_____________________________ Menu Additional Fiters End
+
+//_____________________________ Menu Table Start
+
+g_dtb = '█████████████████ Data Table █████████████████'
+bool i_tbl_data_show  = input.bool(defval=true, title='Display Table', group=g_dtb)
+string i_tbl_data_pos = input.string(defval=position.bottom_right, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_dtb)
+string i_tbl_data_txt_size = input.string(defval=size.normal, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_dtb)
+
+//_____________________________ Menu Table End
+
+//_____________________________ Chart Settings Start
+
+g_ch = '███████████████ Chart Settings ███████████████'
+//color i_pos_dark_color = input.color(defval=#03110F, title='Positive Dark', group=g_ch)
+color i_pos_color = input.color(defval=#26A69A, title='Positive Mid', group=g_ch)
+color i_pos_light_color = input.color(defval=#ACE5DC, title='Positive Light', group=g_ch)
+color i_neg_light_color = input.color(defval=#FCCBCD, title='Negative Light', group=g_ch)
+color i_neg_color = input.color(defval=#FF5252, title='Negative Mid', group=g_ch)
+//color i_neg_dark_color = input.color(defval=#180809, title='Negative Dark', group=g_ch)
+color i_indicator_color = input.color(defval=#2962FF, title='Indicator', group=g_ch)
+color i_signal_color = input.color(defval=#FF6D00, title='Signal', group=g_ch)
+color i_neu_color = input.color(defval=#D1D4DC, title='Neutral Light', group=g_ch)
+color i_neu_mid_color = input.color(defval=#2A2E39, title='Neutral Mid', group=g_ch)
+color i_neu_dark_color = input.color(defval=#141516, title='Neutral Dark', group=g_ch)
+
+//_____________________________ Chart Settings End
+
+//_____________________________ 1. EMA Start
+
+float ema = ta.ema(close, i_ma_length)
+
+plot(series=ema, title='EMA', color=i_indicator_color, force_overlay=true)
+
+//_____________________________ 1. EMA End
+
+//_____________________________ 2. RSI Start
+
+float rsi = ta.rsi(i_rsi_source, i_rsi_length)
+float rsi_ma = ta.sma(rsi, i_rsi_ma_length)
+
+// Plot RSI
+plot(series=rsi, title="RSI", color=i_indicator_color)
+plot(series=rsi_ma, title="RSI MA", color=i_signal_color)
+
+// Bands
+hline(price=80, title="RSI Overbought", color=color.new(i_neg_color, 50), linestyle=hline.style_dotted)
+upper_band = hline(price=60, title="RSI Upper Band", color=color.new(i_pos_color, 50), linestyle=hline.style_dotted)
+hline(price=50, title="RSI Middle Band", color=color.new(i_neu_color, 50), linestyle=hline.style_dotted)
+lower_band = hline(price=40, title="RSI Lower Band", color=color.new(i_neg_color, 50), linestyle=hline.style_dotted)
+hline(price=20, title="RSI Oversold", color=color.new(i_pos_color, 50), linestyle=hline.style_dotted)
+fill(hline1=upper_band, hline2=lower_band, color=color.new(i_neu_color, 95), title="RSI Middle Fill")
+
+//_____________________________ 2. RSI End
+
+//_____________________________ Cumulative Percentage Change Start
+
+// Function to calculate Daily Cumulative Percentage Change of Close Price
+cumulative_percentage_change() =>
+    var float _cum_pct_change = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _daily_pct_change = na(close[1]) ? 0 : (close - close[1]) / close[1] * 100
+    _cum_pct_change := _is_new_day ? _daily_pct_change : (na(_cum_pct_change) ? _daily_pct_change : (_cum_pct_change + _daily_pct_change))
+    _cum_pct_change
+
+// Calculate current cumulative percentage change
+cum_pchg = cumulative_percentage_change()
+
+//_____________________________ Cumulative Percentage Change End
+
+//_____________________________ Cumulative Volume Percentage Change Start
+
+// Function to calculate Daily Cumulative Volume
+cumulative_volume() =>
+    var float _cum_vol = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _cum_vol := _is_new_day ? volume : (na(_cum_vol) ? volume : (_cum_vol + volume))
+    _cum_vol
+
+// Calculate current and previous day cumulative volumes
+var float current_cum_vol = na
+var float prev_cum_vol = na
+
+if ta.change(time('D')) != 0
+    prev_cum_vol := current_cum_vol
+    current_cum_vol := volume
+else
+    current_cum_vol += volume
+
+// Calculate Cumulative Volume Percentage Change
+cum_vol_pchg = (current_cum_vol - nz(prev_cum_vol, current_cum_vol)) / nz(prev_cum_vol, current_cum_vol) * 100
+
+//_____________________________ Cumulative Volume Percentage Change End
+
+//_____________________________ Additional Filters Start
+
+// % Change Filter
+bool pchg_above_filter = true
+bool pchg_below_filter = true
+if i_pchg_filter
+    pchg_above_filter := cum_pchg > i_pchg_above_below
+    pchg_below_filter := cum_pchg < -i_pchg_above_below
+
+// Volume % Change Filter
+bool vol_pchg_filter = true
+if i_vol_pchg_filter
+    vol_pchg_filter := cum_vol_pchg >= i_vol_pchg_above
+
+// ATR Filter
+bool atr_filter = true
+if i_atr_filter
+    atr_filter := (high - low) > ta.atr(i_atr_length) * i_atr_multi
+
+// Body Percent Filter
+bool body_filter = true
+if i_body_filter
+    body_filter := (math.abs(close - open)) / (high - low) >= i_body_percent
+
+// Body Size Filter
+bool body_size_filter = true
+if i_body_size_filter
+    body_size_filter := (math.abs(close - open)) / (high - low) >= i_body_percent and (high - low) >= (high[1] - low[1]) * i_body_size_multiplier
+
+// Volume SMA Filter
+bool volume_filter = true
+if i_volume_filter
+    volume_filter := volume > ta.sma(volume, i_vol_sma_length)
+
+// Continuous Signals Filter
+average_volume = ta.sma(volume, i_rel_vol_avg_vol_len)
+relative_volume = volume / average_volume[1]
+rel_vol_sma_multiplier = ta.sma(relative_volume, i_rel_vol_avg_vol_len) * i_rel_vol_avg_vol_multi
+
+bool rel_vol_filter = true
+if i_rel_vol_filter
+    rel_vol_filter := relative_volume > rel_vol_sma_multiplier
+
+// Time Filter
+bool time_filter = true
+if i_time_filter
+    time_filter := (hour > i_hour_1 or (hour == i_hour_1 and minute >= i_minute_1)) and (hour < i_hour_2 or (hour == i_hour_2 and minute < i_minute_2))
+
+//_____________________________ Additional Filters End
+
+//_____________________________ Retracement Signals Start
+// Short Retracement Start
+
+// Short Condition 1
+short_ret_cont_1 = 
+ rsi > 40
+
+// Short Condition 2
+short_ret_cont_2 = 
+ rsi < 40 and
+ rsi < rsi_ma and
+ open < close and
+ open[1] > close[1] 
+
+var short_ret_cont_2_low = float(na)
+if short_ret_cont_2
+    short_ret_cont_2_low := open
+
+// Short Condition 3
+short_ret_cont_3 = 
+ rsi < 40 and
+ rsi < rsi_ma and
+ close < short_ret_cont_2_low and
+ pchg_below_filter and
+ vol_pchg_filter and
+ atr_filter and
+ body_filter and
+ body_size_filter and
+ volume_filter and
+ rel_vol_filter and 
+ time_filter and
+ barstate.isconfirmed
+
+// Short Retracement Trigger
+var short_break_current_state = 0
+short_break_previous_state = nz(short_break_current_state[1])
+short_break_current_state := short_break_previous_state == 3 ? 0 : short_break_previous_state
+if short_ret_cont_1 and short_break_current_state == 0
+    short_break_current_state := 1
+if short_ret_cont_2 and short_break_current_state == 1
+    short_break_current_state := 2
+if short_ret_cont_3 and short_break_current_state == 2
+    short_break_current_state := 3
+
+short_ret_trigger = short_break_current_state == 3 ? true : false
+
+//___________________________ Short Retracement End
+
+//___________________________ Long Retracement Start
+// Long Retracement Start
+
+// Long Condition 1
+long_ret_cont_1 = 
+ rsi < 60
+
+// Long Condition 2
+long_ret_cont_2 = 
+ rsi > 60 and
+ rsi > rsi_ma and
+ open > close and
+ open[1] < close[1] 
+
+var long_ret_cont_2_high = float(na)
+if long_ret_cont_2
+    long_ret_cont_2_high := open
+
+// Long Condition 3
+long_ret_cont_3 = 
+ rsi > 60 and
+ rsi > rsi_ma and
+ close > long_ret_cont_2_high and
+ pchg_above_filter and
+ vol_pchg_filter and
+ atr_filter and
+ body_filter and
+ body_size_filter and
+ volume_filter and
+ rel_vol_filter and 
+ time_filter and
+ barstate.isconfirmed
+
+// Long  Retracement Trigger
+var long_break_current_state = 0
+long_break_previous_state = nz(long_break_current_state[1])
+long_break_current_state := long_break_previous_state == 3 ? 0 : long_break_previous_state
+if long_ret_cont_1 and long_break_current_state == 0
+    long_break_current_state := 1
+if long_ret_cont_2 and long_break_current_state == 1
+    long_break_current_state := 2
+if long_ret_cont_3 and long_break_current_state == 2
+    long_break_current_state := 3
+
+long_ret_trigger = long_break_current_state == 3 ? true : false
+
+//___________________________ Long Retracement End
+
+//_______________________ Signals End
+
+//___________________________ Plot Retracements
+
+plotshape(series=i_scr_show_short and i_scr_choose == 'Continuous Signals'and short_ret_trigger ? 4 : na, title='Continuous Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? 4 : na, title='Continuous Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
+barcolor(color=i_scr_show_short and i_scr_choose == 'Continuous Signals' and short_ret_trigger ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? i_pos_light_color : na, title='Continuous Candle')
+bgcolor(color=i_scr_show_short and i_scr_choose == 'Continuous Signals' and short_ret_trigger ? color.new(i_neg_color, 90) : i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? color.new(i_pos_color, 90) : na, title='Continuous Bgcolor')
+
+//_____________________________ Retracement Signals End
+
+//_____________________________ Flip Signals Start
+
+// Signal Generation Function
+exrem(condition_1, condition_2) =>
+    var entry_signal = 0
+    entry_signal := condition_1 ? 1 : condition_2 ? -1 : entry_signal[1]
+    entry = entry_signal != entry_signal[1]
+    long = entry and entry_signal == 1
+    short = entry and entry_signal == -1
+    [long, short]
+
+[long_flip_signal, short_flip_signal] = exrem(long_ret_trigger, short_ret_trigger)
+
+//___________________________ Plot Flip
+
+plotshape(series=i_scr_show_short and i_scr_choose == 'Flip Signals' ? short_flip_signal : na, title='Flip Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=i_scr_show_long and i_scr_choose == 'Flip Signals' ? long_flip_signal  : na, title='Flip Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
+
+bgcolor(color=i_scr_show_short and i_scr_choose == 'Flip Signals' and short_flip_signal ? color.new(i_neg_light_color, 90) : i_scr_show_long and i_scr_choose == 'Flip Signals' and long_flip_signal ? color.new(i_pos_light_color, 90) : na, title='Flip Bgcolor')
+barcolor(color=i_scr_show_short and i_scr_choose == 'Flip Signals' and short_flip_signal ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Flip Signals' and long_flip_signal ? i_pos_light_color : na, title='Flip Candle')
+
+//_____________________________ Flip Signals End
+
+//_____________________________ Signals End
+
+//_____________________________ Data Table Start
+
+// To String
+day_pchg_str = str.tostring(cum_pchg,"#.##") + ' %'
+volume_pchg_str = str.tostring(cum_vol_pchg,"#.##") + ' %'
+day_volume_str = str.tostring(current_cum_vol/100000,"#.##") + ' L'
+prev_day_volume_str = str.tostring(prev_cum_vol/100000,"#.##") + ' L'
+
+// Color
+bgcolor_1 = i_neu_dark_color
+bgcolor_2 = i_neu_mid_color
+
+pchg_col = cum_pchg > 0 ? i_pos_color : i_neg_color
+vol_pchg_col = cum_vol_pchg > 0 ? i_pos_color : i_neg_color
+prev_vol_pchg_col = prev_cum_vol < current_cum_vol ? i_neg_color : i_pos_color
+
+// Plot Table
+var table tbl_data = table.new(position=i_tbl_data_pos, columns=2, rows=4, border_width=1, force_overlay=true)
+
+if barstate.islast and i_tbl_data_show
+    table.cell(table_id=tbl_data, column=0, row=0, text="%Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=0, text=day_pchg_str, text_color=pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=1, text="Vol %Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=1, text=volume_pchg_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=2, text="Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=2, text=day_volume_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=3, text="PD Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=3, text=prev_day_volume_str, text_color=prev_vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+
+//_____________________________ Data Table End
+
+//_____________________________ Code End
+
+// Readme First:
+
+// Momentum Setup: RSI Direction Confirmation Scanner
+
+// Long Signal Logic:
+//   - RSI crosses above 60.
+//   - Look for a red candle where RSI is still above 60.
+//   - If a green candle crosses above the red candle and RSI is still above 60, a long signal is generated.
+//   - If the signal candle is large, wait for a 50% or FVG retracement before entering; otherwise, enter after the signal with a predefined risk and quantity.
+//   - Use additional personal confirmations as needed.
+
+// Short Signal Logic:
+//   - RSI crosses below 40.
+//   - Look for a green candle where RSI is still below 40.
+//   - If a red candle crosses below the green candle and RSI is still below 40, a short signal is generated.
+//   - If the signal candle is large, wait for a 50% or FVG retracement before entering; otherwise, enter after the signal with a predefined risk and quantity.
+//   - Use additional personal confirmations as needed.
+
+// EMA 9
+// The plotted 9 period EMA is a momentum indicator used to identify the trend and is not related to signal generation.
