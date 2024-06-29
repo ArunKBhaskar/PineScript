@@ -256,7 +256,7 @@ short_ret_cont_2 =
 
 var short_ret_cont_2_low = float(na)
 if short_ret_cont_2
-    short_ret_cont_2_low := open
+    short_ret_cont_2_low := low
 
 // Short Condition 3
 short_ret_cont_3 = 
@@ -304,7 +304,7 @@ long_ret_cont_2 =
 
 var long_ret_cont_2_high = float(na)
 if long_ret_cont_2
-    long_ret_cont_2_high := open
+    long_ret_cont_2_high := high
 
 // Long Condition 3
 long_ret_cont_3 = 
