@@ -1,0 +1,387 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=5
+indicator(title='Trend Following Setup - Sideways Market Skipper', shorttitle='Sideways Skip', overlay=false, max_bars_back=500)
+
+//_____________________________ Menu Supertrend Start
+
+g_st = '█████████████████ Supertrend █████████████████'
+//bool i_st_display = input.bool(defval=true, title='Display', group=g_st)
+int i_st_atr_period = input.int(defval=10, title="ATR Length", minval=1, group=g_st)
+float i_st_factor = input.float(defval=3.0, title="Factor", minval=0.01, step=0.01, group=g_st)
+
+//_____________________________ Menu Supertrend End
+
+//_____________________________ Menu Range Start
+
+g_r = '███████████████ Volatility Range ███████████████'
+
+tt_r = 
+ "• 'Auto ATR': Automatically sets the range based on the ATR value." +
+ "\n• The range adjusts automatically when switching between symbols." +
+ "\n• The default ATR timeframe is 1 hour." +
+ "\n• For a Supertrend Long Crossover, the range is defined by adding the ATR value." +
+ "\n• For a Supertrend Short Crossunder, the range is defined by subtracting the ATR value." +
+ "\n\n• Type Points: Manually enter the points for different symbols to define the volatility range." +
+ "\n• For example, the points are 60 for NIFTY and 120 for BANKNIFTY."
+
+tt_tp = "Applicable only when 'Range Type' is selected as 'Type Points'."
+
+tt_atr_tf =
+ "• This uses the ATR value of the given timeframe." +
+ "\n• The default ATR timeframe is 1 hour."
+
+bool i_atr_range_display = input.bool(defval=true, title='Display', group=g_r)
+string i_atr_range_choice = input.string(defval='Auto ATR', title='Range Type', options=['Auto ATR', 'Type Points'], tooltip=tt_r, group=g_r)
+float i_atr_range_points = input.float(defval=120, title="Type Points", minval=0.01, tooltip=tt_tp, group=g_r)
+
+//string i_atr_range_timeframe = input.timeframe(defval='60', title='ATR Timeframe', tooltip=tt_atr_tf, group=g_r)
+int i_atr_range_length = input.int(defval=14, title='ATR Length', minval=1, group=g_r)
+string i_atr_range_smoothing = input.string(title="ATR Smoothing", defval="RMA", options=["RMA", "SMA", "EMA", "WMA"], group=g_r)
+float i_atr_range_multiplier = input.float(defval=1.5, title="ATR Multiplier", minval=1, step=0.5, group=g_r)
+int i_atr_range_sma_length = input.int(defval=14, title='ATR SMA Length', minval=1, group=g_r)
+
+//_____________________________ Menu Range End
+
+//_____________________________ Menu Additional Fiters Start
+
+g_af = '███████████████ Additional Fiters ███████████████'
+tt_pchg = 
+ "• If '% Change Above/Below +/-' is 4, it means relative volume is considered when the price change is above 4%." +
+ "\n• A value of 4% is positive for bullish scenarios and negative for bearish scenarios." +
+ "\n• The percentage change is calculated using cumulative percentage change, so there might be a minor difference between the actual and displayed percentage change."
+tt_vpchg = 
+ "• If 'Volume % Change Above' is 0, it means Relative Volume is considered when today's volume is greater than the previous day's volume." +
+ "\n• For 'Screening Method' choice 'Retracement to EMA,' the 'Apply Volume % Change Filter' can be unchecked." +
+ "\n• A 'Volume % Change Above' 300% or more often indicates a major breakout, which may happen today or the next day." +
+ "\n• The volume percentage change is calculated using cumulative percentage change, so there might be a minor difference between the actual and displayed percentage change."
+tt_atr = 
+ "• ATR helps filter out longer or more volatile signal candles."
+tt_atr_mul =
+ "• Higher multiplier value filters a longer or more volatile signal candle."
+tt_bf =
+ "• If the input is '80', it means the body covers over 80% of the candle."
+tt_bs =
+ "• 2 means the candle is 2 times larger than the previous candle."
+tt_vol =
+ "• Filter out a candle when its volume is greater than the SMA of the volume."
+tt_rv =
+ "• Filter out a candle when its volume is greater than the Relative Volume."
+tt_tf =
+ "• Filter out a signals between the given Time."
+
+bool i_pchg_filter = input.bool(defval=false, title='Apply % Change Filter', tooltip=tt_pchg, group=g_af)
+float i_pchg_above_below = input.float(defval=2, title='% Change Above/Below +/-', minval=0, group=g_af)
+
+bool i_vol_pchg_filter = input.bool(defval=false, title='Apply Volume % Change Filter', tooltip=tt_vpchg, group=g_af)
+float i_vol_pchg_above = input.float(defval=0, title='Volume % Change Above', minval=0, group=g_af)
+
+bool i_atr_filter = input.bool(defval=true, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
+int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af)
+float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, group=g_af)
+
+bool i_body_filter = input.bool(defval=false, title='Apply Body % Filter', tooltip=tt_bf, group=g_af)
+float i_body_percent = input.float(defval=80, title='Body % Above', minval=0, maxval=100, group=g_af) / 100
+
+bool i_body_size_filter = input.bool(defval=false, title='Apply Body Size Filter', tooltip=tt_bs, group=g_af)
+int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)', minval=0,  group=g_af)
+
+bool i_volume_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vol, group=g_af)
+int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length', group=g_af)
+
+bool i_rel_vol_filter = input.bool(defval=false, title='Apply Relative Volume Filter', tooltip=tt_rv, group=g_af)
+int i_rel_vol_avg_vol_len = input.int(defval=90, title='Relative Volume Length', minval=2, group=g_af)
+float i_rel_vol_avg_vol_multi = input.float(defval=5, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
+
+bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
+int i_hour_1 = input.int(defval=9, minval=0, title='Time From', inline='t_1', group=g_af)
+int i_minute_1 = input.int(defval=15, minval=0, title=':', inline='t_1', group=g_af)
+int i_hour_2 = input.int(defval=10, minval=0, title='Time To ', inline='t_2', group=g_af)
+int i_minute_2 = input.int(defval=15, minval=0, title=':', inline='t_2', group=g_af)
+
+//_____________________________ Menu Additional Fiters End
+
+//_____________________________ Menu Table Start
+
+g_dtb = '█████████████████ Data Table █████████████████'
+bool i_tbl_data_show  = input.bool(defval=true, title='Display Table', group=g_dtb)
+string i_tbl_data_pos = input.string(defval=position.bottom_right, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_dtb)
+string i_tbl_data_txt_size = input.string(defval=size.normal, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_dtb)
+
+//_____________________________ Menu Table End
+
+//_____________________________ Chart Settings Start
+
+g_ch = '███████████████ Chart Settings ███████████████'
+color i_pos_color = input.color(defval=#26A69A, title='Positive Mid', group=g_ch)
+color i_pos_light_color = input.color(defval=#ACE5DC, title='Positive Light', group=g_ch)
+color i_neg_light_color = input.color(defval=#FCCBCD, title='Negative Light', group=g_ch)
+color i_neg_color = input.color(defval=#FF5252, title='Negative Mid', group=g_ch)
+color i_indicator_color = input.color(defval=#2962FF, title='Indicator', group=g_ch)
+color i_signal_color = input.color(defval=#FF6D00, title='Signal', group=g_ch)
+color i_neu_color = input.color(defval=#D1D4DC, title='Neutral Light', group=g_ch)
+color i_neu_mid_color = input.color(defval=#2A2E39, title='Neutral Mid', group=g_ch)
+color i_neu_dark_color = input.color(defval=#141516, title='Neutral Dark', group=g_ch)
+
+//_____________________________ Chart Settings End
+
+//_____________________________ 1. Supertrend Start
+
+[supertrend, direction] = ta.supertrend(i_st_factor, i_st_atr_period)
+supertrend := barstate.isfirst ? na : supertrend
+
+// Plot Supertrend
+upTrend = plot(series=direction < 0 ? supertrend : na, title="Supertrend Up", color=i_pos_color, style=plot.style_linebr, force_overlay=true)
+downTrend = plot(series=direction < 0 ? na : supertrend, title="Supertrend Down", color=i_neg_color, style=plot.style_linebr, force_overlay=true)
+bodyMiddle = plot(series=barstate.isfirst ? na : (open + close) / 2, title="Body Middle", display=display.none, force_overlay=true)
+fill(plot1=bodyMiddle, plot2=upTrend, color=color.new(i_pos_color, 90), fillgaps=false)
+fill(plot1=bodyMiddle, plot2=downTrend, color=color.new(i_neg_color, 90), fillgaps=false)
+
+//_____________________________ 1. Supertrend End
+
+//_____________________________ 2. ATR Start
+
+ma_function_atr(source, length) =>
+	switch i_atr_range_smoothing
+		'RMA' => ta.rma(source, length)
+		'SMA' => ta.sma(source, length)
+		'EMA' => ta.ema(source, length)
+		'WMA' => ta.wma(source, length)
+
+atr = ma_function_atr(ta.tr(true), i_atr_range_length)
+atr_sma = ta.sma(atr, i_atr_range_sma_length)
+plot(series=atr, title="ATR", color=i_indicator_color)
+plot(series=atr_sma, title="ATR SMA", color=i_signal_color)
+
+// Range Source
+range_input = i_atr_range_choice == 'Auto ATR' ? (atr * i_atr_range_multiplier) : i_atr_range_points
+range_source = i_atr_range_choice == 'Type Points' ? i_atr_range_points :range_input
+
+//_____________________________ 2. ATR End
+
+//_____________________________ Cumulative Percentage Change Start
+
+// Function to calculate Daily Cumulative Percentage Change of Close Price
+cumulative_percentage_change() =>
+    var float _cum_pct_change = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _daily_pct_change = na(close[1]) ? 0 : (close - close[1]) / close[1] * 100
+    _cum_pct_change := _is_new_day ? _daily_pct_change : (na(_cum_pct_change) ? _daily_pct_change : (_cum_pct_change + _daily_pct_change))
+    _cum_pct_change
+
+// Calculate current cumulative percentage change
+cum_pchg = cumulative_percentage_change()
+
+//_____________________________ Cumulative Percentage Change End
+
+//_____________________________ Cumulative Volume Percentage Change Start
+
+// Function to calculate Daily Cumulative Volume
+cumulative_volume() =>
+    var float _cum_vol = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _cum_vol := _is_new_day ? volume : (na(_cum_vol) ? volume : (_cum_vol + volume))
+    _cum_vol
+
+// Calculate current and previous day cumulative volumes
+var float current_cum_vol = na
+var float prev_cum_vol = na
+
+if ta.change(time('D')) != 0
+    prev_cum_vol := current_cum_vol
+    current_cum_vol := volume
+else
+    current_cum_vol += volume
+
+// Calculate Cumulative Volume Percentage Change
+cum_vol_pchg = (current_cum_vol - nz(prev_cum_vol, current_cum_vol)) / nz(prev_cum_vol, current_cum_vol) * 100
+
+//_____________________________ Cumulative Volume Percentage Change End
+
+//_____________________________ Additional Filters Start
+
+// % Change Filter
+bool pchg_above_filter = true
+bool pchg_below_filter = true
+if i_pchg_filter
+    pchg_above_filter := cum_pchg > i_pchg_above_below
+    pchg_below_filter := cum_pchg < -i_pchg_above_below
+
+// Volume % Change Filter
+bool vol_pchg_filter = true
+if i_vol_pchg_filter
+    vol_pchg_filter := cum_vol_pchg >= i_vol_pchg_above
+
+// ATR Filter
+bool atr_filter = true
+if i_atr_filter
+    atr_filter := (high - low) > ta.atr(i_atr_length) * i_atr_multi
+
+// Body Percent Filter
+bool body_filter = true
+if i_body_filter
+    body_filter := (math.abs(close - open)) / (high - low) >= i_body_percent
+
+// Body Size Filter
+bool body_size_filter = true
+if i_body_size_filter
+    body_size_filter := (math.abs(close - open)) / (high - low) >= i_body_percent and (high - low) >= (high[1] - low[1]) * i_body_size_multiplier
+
+// Volume SMA Filter
+bool volume_filter = true
+if i_volume_filter
+    volume_filter := volume > ta.sma(volume, i_vol_sma_length)
+
+// Continuous Signals Filter
+average_volume = ta.sma(volume, i_rel_vol_avg_vol_len)
+relative_volume = volume / average_volume[1]
+rel_vol_sma_multiplier = ta.sma(relative_volume, i_rel_vol_avg_vol_len) * i_rel_vol_avg_vol_multi
+
+bool rel_vol_filter = true
+if i_rel_vol_filter
+    rel_vol_filter := relative_volume > rel_vol_sma_multiplier
+
+// Time Filter
+bool time_filter = true
+if i_time_filter
+    time_filter := (hour > i_hour_1 or (hour == i_hour_1 and minute >= i_minute_1)) and (hour < i_hour_2 or (hour == i_hour_2 and minute < i_minute_2))
+
+//_____________________________ Additional Filters End
+
+//_____________________________ Signals Start
+
+// Condition 1
+short_cont = ta.crossunder(close, supertrend) and barstate.isconfirmed
+long_cont = ta.crossover(close, supertrend) and barstate.isconfirmed
+
+// Get Volatility Range After Cross 
+var top_price = float(na)
+var bottom_price = float(na)
+
+if (short_cont)
+    bottom_price := close - range_source
+    top_price := na  // Reset top_price to avoid plotting it
+
+if (long_cont)
+    top_price := close + range_source
+    bottom_price := na  // Reset bottom_price to avoid plotting it
+
+// Condition 2
+short_break_cond = 
+ close < bottom_price and 
+ open > close and
+ atr > atr_sma and
+ pchg_below_filter and
+ vol_pchg_filter and
+ atr_filter and
+ body_filter and
+ body_size_filter and
+ volume_filter and
+ rel_vol_filter and 
+ time_filter and
+ barstate.isconfirmed
+
+long_break_cond = 
+ close > top_price and 
+ open < close and
+ atr > atr_sma and
+ pchg_above_filter and
+ vol_pchg_filter and
+ atr_filter and
+ body_filter and
+ body_size_filter and
+ volume_filter and
+ rel_vol_filter and 
+ time_filter and
+ barstate.isconfirmed
+
+// Short Signal
+var short_current_state = 0
+bear_previous_state = nz(short_current_state[1])
+short_current_state := bear_previous_state == 2 ? 0 : bear_previous_state
+if short_cont and short_current_state == 0
+    short_current_state := 1
+if short_break_cond and short_current_state == 1
+    short_current_state := 2
+
+bool short_break_trigger = short_current_state == 2 ? true : false
+
+// Long Signal
+var long_current_state = 0
+bull_previous_state = nz(long_current_state[1])
+long_current_state := bull_previous_state == 2 ? 0 : bull_previous_state
+if long_cont and long_current_state == 0
+    long_current_state := 1
+if long_break_cond and long_current_state == 1
+    long_current_state := 2
+
+bool long_break_trigger = long_current_state == 2 ? true : false
+
+// Plot Supertrend Cross Bar
+barcolor(color=short_cont ? i_neg_light_color : long_cont ? i_pos_light_color : na, title='Supertrend Cross Candle')
+
+// Plot Break Signal
+plotshape(series=long_break_trigger ? 3 : na, title='Long Signal', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=short_break_trigger ? 3 : na, title='Short Signal', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
+barcolor(color=short_break_trigger ? i_neg_light_color : long_break_trigger ? i_pos_light_color : na, title='Signal Candle')
+
+// Plot Historical Range
+plot(series=i_atr_range_display and i_atr_range_display and top_price == top_price[1] ? top_price : na, title='Top Range', color=i_pos_color, linewidth=1, style=plot.style_steplinebr, offset=-1, force_overlay=true)
+plot(series=i_atr_range_display and i_atr_range_display and bottom_price == bottom_price[1] ? bottom_price : na, title='Bottom Range', color=i_neg_color, linewidth=1, style=plot.style_steplinebr, offset=-1, force_overlay=true)
+
+//_____________________________ Signals End
+
+//_____________________________ Data Table Start
+
+// To String
+day_pchg_str = str.tostring(cum_pchg,"#.##") + ' %'
+volume_pchg_str = str.tostring(cum_vol_pchg,"#.##") + ' %'
+day_volume_str = str.tostring(current_cum_vol/100000,"#.##") + ' L'
+prev_day_volume_str = str.tostring(prev_cum_vol/100000,"#.##") + ' L'
+
+// Color
+bgcolor_1 = i_neu_dark_color
+bgcolor_2 = i_neu_mid_color
+
+pchg_col = cum_pchg > 0 ? i_pos_color : i_neg_color
+vol_pchg_col = cum_vol_pchg > 0 ? i_pos_color : i_neg_color
+prev_vol_pchg_col = prev_cum_vol < current_cum_vol ? i_neg_color : i_pos_color
+
+// Plot Table
+var table tbl_data = table.new(position=i_tbl_data_pos, columns=2, rows=4, border_width=1, force_overlay=true)
+
+if barstate.islast and i_tbl_data_show
+    table.cell(table_id=tbl_data, column=0, row=0, text="%Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=0, text=day_pchg_str, text_color=pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=1, text="Vol %Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=1, text=volume_pchg_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=2, text="Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=2, text=day_volume_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+
+    table.cell(table_id=tbl_data, column=0, row=3, text="PD Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id=tbl_data, column=1, row=3, text=prev_day_volume_str, text_color=prev_vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+
+//_____________________________ Data Table End
+
+//_____________________________ Code End
+
+// Readme First:
+// 
+// Trend Following Setup - Sideways Market Skipper Scanner
+// 
+// Long Signal Logic:
+//  - Close crosses above the Supertrend.
+//  - Add ATR value (with multiplier) to the close to identify the potential sideways or volatility range.
+//  - When the price crosses this range, it's considered a breakout.
+//  - The ATR should be rising or the volatility is increasing.
+// 
+// Short Signal Logic:
+//  - Close crosses below the Supertrend.
+//  - Substract ATR value (with multiplier) to the close to identify the potential sideways or volatility range.
+//  - When the price crosses this range, it's considered a breakdown.
+//  - The ATR should be rising or the volatility is increasing.
+//
+// Entry: Enter after the retracement once the signal is generated.
