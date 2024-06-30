@@ -86,8 +86,8 @@ int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)
 bool i_volume_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vol, group=g_af)
 int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length', group=g_af)
 
-bool i_rel_vol_filter = input.bool(defval=false, title='Apply Continuous Signals Filter', tooltip=tt_rv, group=g_af)
-int i_rel_vol_avg_vol_len = input.int(defval=90, title='Continuous Signals Length', minval=2, group=g_af)
+bool i_rel_vol_filter = input.bool(defval=false, title='Apply Relative Volume Filter', tooltip=tt_rv, group=g_af)
+int i_rel_vol_avg_vol_len = input.int(defval=90, title='Relative Volume Length', minval=2, group=g_af)
 float i_rel_vol_avg_vol_multi = input.float(defval=5, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
 
 bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
