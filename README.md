@@ -17,5 +17,5 @@ By making the script open-source, the authors encourages collaboration and scrut
 The information and publications are not intended to be, and do not constitute, financial, investment, trading, or any other form of advice or recommendations supplied or endorsed by the publisher or the creators of this script. Users are advised to exercise their own judgment and seek professional advice before making any financial decisions.
 
 # Donation
-If you find any indicator that improves your trading or helps you make money, consider donating—if you wish.
-	UPI ID: arunkbhaskar@apl
+If you find any indicator that improves your trading or helps you make money, consider donating-if you wish.
+UPI ID: arunkbhaskar@apl
