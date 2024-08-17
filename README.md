@@ -18,4 +18,4 @@ The information and publications are not intended to be, and do not constitute, 
 
 # Donation
 If you find any indicator that improves your trading or helps you make money, consider donating—if you wish.
-UPI ID: arunkbhaskar@apl
+	UPI ID: arunkbhaskar@apl
