@@ -8,7 +8,7 @@ indicator(title='Momentum Setup: RSI Direction Confirmation', shorttitle='RSI Di
 
 g_scrtb = '█████████████████ Scanner █████████████████'
 
-string i_scr_choose = input.string(defval='Continuous Signals', title='Scanning Method', options=['Continuous Signals', 'Flip Signals'], group=g_scrtb)
+string i_scr_choose = input.string(defval='Break Flip', title='Scanning Method', options=['Break Flip', 'Break Continuous'], group=g_scrtb)
 
 bool i_scr_show_long  = input.bool(defval=true, title='Long Signals', inline='tb_2', group=g_scrtb)
 bool i_scr_show_short  = input.bool(defval=true, title='Short Signals', inline='tb_2', group=g_scrtb)
@@ -16,9 +16,6 @@ bool i_scr_show_short  = input.bool(defval=true, title='Short Signals', inline='
 //_____________________________ Menu Screener End
 
 //_____________________________ Menu Indicators Start
-
-gp_ma = '████████ Exponential Moving Average (EMA) ████████'
-int i_ma_length = input.int(defval=9, title='EMA Length', minval=1, group=gp_ma)
 
 g_rsi = '██████████ Relative Strength Index (RSI) ██████████'
 int i_rsi_length = input.int(defval=14, title='RSI Length', minval=1, group=g_rsi)
@@ -57,6 +54,9 @@ tt_tf =
 bool i_pchg_filter = input.bool(defval=false, title='Apply % Change Filter', tooltip=tt_pchg, group=g_af)
 float i_pchg_above_below = input.float(defval=2, title='% Change Above/Below +/-', minval=0, group=g_af)
 
+bool i_vol_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vpchg, group=g_af)
+int i_vol_above = input.int(defval=500000, title='Volume Above', minval=0, group=g_af)
+
 bool i_vol_pchg_filter = input.bool(defval=false, title='Apply Volume % Change Filter', tooltip=tt_vpchg, group=g_af)
 float i_vol_pchg_above = input.float(defval=0, title='Volume % Change Above', minval=0, group=g_af)
 
@@ -65,7 +65,7 @@ int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af
 float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, group=g_af)
 
 bool i_body_filter = input.bool(defval=false, title='Apply Body % Filter', tooltip=tt_bf, group=g_af)
-float i_body_percent = input.float(defval=80, title='Body % Above', minval=0, maxval=100, group=g_af) / 100
+float i_body_percent = input.float(defval=70, title='Body % Above', minval=0, maxval=100, group=g_af) / 100
 
 bool i_body_size_filter = input.bool(defval=false, title='Apply Body Size Filter', tooltip=tt_bs, group=g_af)
 int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)', minval=0,  group=g_af)
@@ -73,8 +73,8 @@ int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)
 bool i_volume_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vol, group=g_af)
 int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length', group=g_af)
 
-bool i_rel_vol_filter = input.bool(defval=false, title='Apply Relative Volume Filter', tooltip=tt_rv, group=g_af)
-int i_rel_vol_avg_vol_len = input.int(defval=90, title='Relative Volume Length', minval=2, group=g_af)
+bool i_rel_vol_filter = input.bool(defval=false, title='Apply Continuous Signals Filter', tooltip=tt_rv, group=g_af)
+int i_rel_vol_avg_vol_len = input.int(defval=90, title='Break Signals Length', minval=2, group=g_af)
 float i_rel_vol_avg_vol_multi = input.float(defval=5, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
 
 bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
@@ -97,12 +97,12 @@ string i_tbl_data_txt_size = input.string(defval=size.normal, title='Size', opti
 //_____________________________ Chart Settings Start
 
 g_ch = '███████████████ Chart Settings ███████████████'
-//color i_pos_dark_color = input.color(defval=#03110F, title='Positive Dark', group=g_ch)
+color i_pos_dark_color = input.color(defval=#03110F, title='Positive Dark', group=g_ch)
 color i_pos_color = input.color(defval=#26A69A, title='Positive Mid', group=g_ch)
 color i_pos_light_color = input.color(defval=#ACE5DC, title='Positive Light', group=g_ch)
 color i_neg_light_color = input.color(defval=#FCCBCD, title='Negative Light', group=g_ch)
 color i_neg_color = input.color(defval=#FF5252, title='Negative Mid', group=g_ch)
-//color i_neg_dark_color = input.color(defval=#180809, title='Negative Dark', group=g_ch)
+color i_neg_dark_color = input.color(defval=#180809, title='Negative Dark', group=g_ch)
 color i_indicator_color = input.color(defval=#2962FF, title='Indicator', group=g_ch)
 color i_signal_color = input.color(defval=#FF6D00, title='Signal', group=g_ch)
 color i_neu_color = input.color(defval=#D1D4DC, title='Neutral Light', group=g_ch)
@@ -111,15 +111,7 @@ color i_neu_dark_color = input.color(defval=#141516, title='Neutral Dark', group
 
 //_____________________________ Chart Settings End
 
-//_____________________________ 1. EMA Start
-
-float ema = ta.ema(close, i_ma_length)
-
-plot(series=ema, title='EMA', color=i_indicator_color, force_overlay=true)
-
-//_____________________________ 1. EMA End
-
-//_____________________________ 2. RSI Start
+//_____________________________ RSI Start
 
 float rsi = ta.rsi(i_rsi_source, i_rsi_length)
 float rsi_ma = ta.sma(rsi, i_rsi_ma_length)
@@ -136,7 +128,7 @@ lower_band = hline(price=40, title="RSI Lower Band", color=color.new(i_neg_color
 hline(price=20, title="RSI Oversold", color=color.new(i_pos_color, 50), linestyle=hline.style_dotted)
 fill(hline1=upper_band, hline2=lower_band, color=color.new(i_neu_color, 95), title="RSI Middle Fill")
 
-//_____________________________ 2. RSI End
+//_____________________________ RSI End
 
 //_____________________________ Cumulative Percentage Change Start
 
@@ -185,6 +177,11 @@ bool pchg_below_filter = true
 if i_pchg_filter
     pchg_above_filter := cum_pchg > i_pchg_above_below
     pchg_below_filter := cum_pchg < -i_pchg_above_below
+
+// Volume Filter
+bool vol_filter = true
+if i_vol_filter
+    vol_filter := current_cum_vol >= i_vol_above
 
 // Volume % Change Filter
 bool vol_pchg_filter = true
@@ -251,6 +248,7 @@ short_ret_cont_3 =
  rsi < rsi_ma and
  close < short_ret_cont_2_low and
  pchg_below_filter and
+ vol_filter and
  vol_pchg_filter and
  atr_filter and
  body_filter and
@@ -299,6 +297,7 @@ long_ret_cont_3 =
  rsi > rsi_ma and
  close > long_ret_cont_2_high and
  pchg_above_filter and
+ vol_filter and
  vol_pchg_filter and
  atr_filter and
  body_filter and
@@ -327,10 +326,11 @@ long_ret_trigger = long_break_current_state == 3 ? true : false
 
 //___________________________ Plot Retracements
 
-plotshape(series=i_scr_show_short and i_scr_choose == 'Continuous Signals'and short_ret_trigger ? 4 : na, title='Continuous Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
-plotshape(series=i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? 4 : na, title='Continuous Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
-barcolor(color=i_scr_show_short and i_scr_choose == 'Continuous Signals' and short_ret_trigger ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? i_pos_light_color : na, title='Continuous Candle')
-bgcolor(color=i_scr_show_short and i_scr_choose == 'Continuous Signals' and short_ret_trigger ? color.new(i_neg_color, 90) : i_scr_show_long and i_scr_choose == 'Continuous Signals' and long_ret_trigger ? color.new(i_pos_color, 90) : na, title='Continuous Bgcolor')
+// 1
+plotshape(series=i_scr_show_short and i_scr_choose == 'Break Continuous' and short_ret_trigger ? 4 : na, title='Break Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=i_scr_show_long and i_scr_choose == 'Break Continuous' and long_ret_trigger ? 4 : na, title='Break Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
+barcolor(color=i_scr_show_short and i_scr_choose == 'Break Continuous' and short_ret_trigger ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Break Continuous' and long_ret_trigger ? i_pos_light_color : na, title='Break Candle')
+bgcolor(color=i_scr_show_short and i_scr_choose == 'Break Continuous' and short_ret_trigger ? color.new(i_neg_color, 90) : i_scr_show_long and i_scr_choose == 'Break Continuous' and long_ret_trigger ? color.new(i_pos_color, 90) : na, title='Break Bgcolor')
 
 //_____________________________ Retracement Signals End
 
@@ -349,11 +349,11 @@ exrem(condition_1, condition_2) =>
 
 //___________________________ Plot Flip
 
-plotshape(series=i_scr_show_short and i_scr_choose == 'Flip Signals' ? short_flip_signal : na, title='Flip Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
-plotshape(series=i_scr_show_long and i_scr_choose == 'Flip Signals' ? long_flip_signal  : na, title='Flip Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=i_scr_show_short and i_scr_choose == 'Break Flip' ? short_flip_signal : na, title='Flip Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
+plotshape(series=i_scr_show_long and i_scr_choose == 'Break Flip' ? long_flip_signal  : na, title='Flip Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
 
-bgcolor(color=i_scr_show_short and i_scr_choose == 'Flip Signals' and short_flip_signal ? color.new(i_neg_light_color, 90) : i_scr_show_long and i_scr_choose == 'Flip Signals' and long_flip_signal ? color.new(i_pos_light_color, 90) : na, title='Flip Bgcolor')
-barcolor(color=i_scr_show_short and i_scr_choose == 'Flip Signals' and short_flip_signal ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Flip Signals' and long_flip_signal ? i_pos_light_color : na, title='Flip Candle')
+bgcolor(color=i_scr_show_short and i_scr_choose == 'Break Flip' and short_flip_signal ? color.new(i_neg_light_color, 90) : i_scr_show_long and i_scr_choose == 'Break Flip' and long_flip_signal ? color.new(i_pos_light_color, 90) : na, title='Flip Bgcolor')
+barcolor(color=i_scr_show_short and i_scr_choose == 'Break Flip' and short_flip_signal ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'Break Flip' and long_flip_signal ? i_pos_light_color : na, title='Flip Candle')
 
 //_____________________________ Flip Signals End
 
@@ -412,6 +412,3 @@ if barstate.islast and i_tbl_data_show
 //   - If a red candle crosses below the green candle and RSI is still below 40, a short signal is generated.
 //   - If the signal candle is large, wait for a 50% or FVG retracement before entering; otherwise, enter after the signal with a predefined risk and quantity.
 //   - Use additional personal confirmations as needed.
-
-// EMA 9
-// The plotted 9 period EMA is a momentum indicator used to identify the trend and is not related to signal generation.
