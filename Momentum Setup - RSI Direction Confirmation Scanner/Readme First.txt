@@ -16,5 +16,5 @@
 //   - If the signal candle is large, wait for a 50% or FVG retracement before entering; otherwise, enter after the signal with a predefined risk and quantity.
 //   - Use additional personal confirmations as needed.
 
-// EMA 9
-// The plotted 9 period EMA is a momentum indicator used to identify the trend and is not related to signal generation.
+// Update 12 October 2024
+//   - Refined for accuracy.
