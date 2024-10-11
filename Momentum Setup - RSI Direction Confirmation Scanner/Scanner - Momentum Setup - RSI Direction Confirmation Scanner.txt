@@ -124,7 +124,7 @@ color i_neu_dark_color = input.color(defval=#141516, title='Neutral Dark', group
 
 //_____________________________ Chart Settings End
 
-//_____________________________ 1. RSI Start
+//_____________________________ RSI Start
 
 float rsi = ta.rsi(i_rsi_source, i_rsi_length)
 float rsi_ma = ta.sma(rsi, i_rsi_ma_length)
@@ -141,7 +141,7 @@ lower_band = hline(price=40, title="RSI Lower Band", color=color.new(i_neg_color
 hline(price=20, title="RSI Oversold", color=color.new(i_pos_color, 50), linestyle=hline.style_dotted)
 fill(hline1=upper_band, hline2=lower_band, color=color.new(i_neu_color, 95), title="RSI Middle Fill")
 
-//_____________________________ 2. RSI End
+//_____________________________ RSI End
 
 //_____________________________ Cumulative Percentage Change Start
 
