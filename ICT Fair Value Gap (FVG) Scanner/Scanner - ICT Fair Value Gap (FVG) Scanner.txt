@@ -1,77 +1,50 @@
 // This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Arun_K_Bhaskar
 
-//@version=5
-indicator(title='ICT Fair Value Gap (FVG) Scanner', shorttitle='ICT FVG Scan', overlay=true, max_bars_back=500, max_lines_count=500, max_boxes_count=500)
+//@version=6
+indicator(title = 'ICT Fair Value Gap (FVG) Scanner v2', shorttitle = 'FVG Scan v2', overlay = true, max_boxes_count = 500)
 
-//_____________________________ Menu Screener Start
+//___________________________ Menu Screener Start
 
 g_scrtb = '█████████████████ Scanner █████████████████'
 
-string i_scr_choose = 'FVG Fill' //input.string(defval='FVG Fill', title='Scanning Method', options=['FVG Fill', 'Flip Signals'], group=g_scrtb)
+string i_scr_choose = input.string(defval = 'First Touch Confirmed', title = 'Scanning Method', options = ['FVG %', 'First Touch', 'First Touch Confirmed',  'Full Fill', 'Full Fill Confirmed', 'Reversal'], group = g_scrtb)
 
-tt_is = "• Reads only up to first 40 symbols." +
-     "\n• Total characters cannot exceed 4096." +
-     "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+string tt_is = 
+ "• Reads only up to first 40 symbols." +
+ "\n• Total characters cannot exceed 4096." +
+ "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
 
 string i_symbols = input.text_area(
- defval="NSE:ASHOKA,NSE:BOMDYEING,NSE:CAMLINFINE,NSE:CASTROLIND,NSE:CESC,NSE:CHAMBLFERT,NSE:DBREALTY,NSE:DELTACORP,NSE:ENGINERSIN,NSE:FSL,NSE:GICRE,NSE:GMDCLTD,NSE:GPPL,NSE:GREAVESCOT,NSE:GSFC,NSE:HEMIPROP,NSE:HINDOILEXP,NSE:INDIACEM,NSE:IRCON,NSE:ITI,NSE:KNRCON,NSE:MARKSANS,NSE:MRPL,NSE:NCC,NSE:NFL,NSE:NIACL,NSE:NLCINDIA,NSE:ORIENTCEM,NSE:PAYTM,NSE:RAILTEL,NSE:RBA,NSE:RCF,NSE:RELINFRA,NSE:SCI,NSE:SEQUENT,NSE:SJVN,NSE:STLTECH,NSE:TEXRAIL,NSE:TIMETECHNO,NSE:WELSPUNLIV", 
+ defval="NSE:ABFRL,NSE:BANDHANBNK,NSE:BHEL,NSE:BLS,NSE:CENTRALBK,NSE:CESC,NSE:ENGINERSIN,NSE:EXIDEIND,NSE:FINPIPE,NSE:HINDCOPPER,NSE:IEX,NSE:IGL,NSE:IIFL,NSE:INOXWIND,NSE:IOB,NSE:IRB,NSE:IRCON,NSE:IRFC,NSE:LTF,NSE:MAHABANK,NSE:MANAPPURAM,NSE:MMTC,NSE:MRPL,NSE:NATIONALUM,NSE:NETWORK18,NSE:NLCINDIA,NSE:NMDC,NSE:PPLPHARMA,NSE:RAILTEL,NSE:RBLBANK,NSE:RCF,NSE:RTNINDIA,NSE:SAIL,NSE:SAMMAANCAP,NSE:SBFC,NSE:SCI,NSE:SJVN,NSE:SUZLON,NSE:TTML,NSE:FSL", 
  title="Paste Symbols", tooltip=tt_is, group=g_scrtb)
 
-bool i_scr_show_table  = input.bool(defval=true, title='Display Table', group=g_scrtb)
-bool i_scr_show_long  = input.bool(defval=true, title='Long Signals', inline='tb_2', group=g_scrtb)
-bool i_scr_show_short  = input.bool(defval=true, title='Short Signals', inline='tb_2', group=g_scrtb)
+bool i_scr_show_table = input.bool(defval = true, title = 'Display Table', group = g_scrtb)
+bool i_scr_show_long = input.bool(defval = true, title = 'Long Signals', inline = 'tb_2', group = g_scrtb)
+bool i_scr_show_short = input.bool(defval = true, title = 'Short Signals', inline = 'tb_2', group = g_scrtb)
 
-int i_scr_tbl_disp_rows = input.int(defval=12, title='Display Rows', minval=0, maxval=100, group=g_scrtb)
-string i_scr_tbl_position = input.string(defval=position.bottom_left, title='Table Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_scrtb)
-string i_scr_tbl_text_size = input.string(defval=size.small, title='Table Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_scrtb)
+int i_scr_tbl_disp_rows = input.int(defval = 12, title = 'Display Rows', minval = 0, maxval = 100, group = g_scrtb)
+string i_scr_tbl_position = input.string(defval = position.bottom_left, title = 'Table Position', options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = g_scrtb)
+string i_scr_tbl_text_size = input.string(defval = size.small, title = 'Table Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = g_scrtb)
 
-//_____________________________ Menu Screener End
+//___________________________ Menu Screener End
 
-//_____________________________ Menu FVG Start
+//___________________________ Menu Indicators Start
 
-g_fvg = '██████████████ Fair Value Gap (FVG) ██████████████'
-tt_fvg_fib = 
- "• '0' means the bottom of the bullish FVG and the top of the bearish FVG." +
- "\n• '1' means the top of the bullish FVG and the bottom of the bearish FVG." +
- "\n• '0.5' is the 50% level of the FVG." +
- "\n• You can also use other Fibonacci or OTE values such as 0.62, 0.705, 0.79, etc." +
- "\n• The minimum value is 0 and the maximum value is 1."
+g_gap = '███████████████████ FVG ███████████████████'
 
-tt_fvg_h = 
- "• Adjust the % change value according to your market and timeframe." +
- "\n• Default values for Indian markets is set as 4% for 1hr and 1.5% for 5min timeframe." +
- "\n• Logic is, a wider FVG or breakout occurs with a minimum difference of 3.5% or 4% for 1hr timeframe." +
- "\n• A complete FVG fill could result in a high momentum bounce back." +
- "\n• ICT live trading videos often follow a full fill of FVG." +
- "\n• You can adjust the FVG line to 50% or any other value." +
- "\n• If the market is already trending, it may not fully fill the wider FVG; instead, it will fill 50% of the FVG."
+bool closeGapsPartially = input.bool(defval = true, title = 'Close FVG Partially', group = g_gap)
+int boxLimitInput = input.int(defval = 15, title = 'Max Number of FVG', minval = 1, maxval = 500, group = g_gap)
+string minimalDeviationTooltip = 'Specifies the minimal size of detected gaps, as a percentage of the average high-low range for the last 14 bars.'
+float minimalDeviationInput = nz(input.float(defval = 70.0, title = 'Minimal Deviation (%)', tooltip = minimalDeviationTooltip, minval = 1, maxval = 100, group = g_gap) / 100 * ta.sma(high - low, 14))
+bool limitBoxLengthBoolInput = input.bool(defval = false, title = 'Max Bars', tooltip = 'Limit Max Gap Trail Length (bars)', inline = 'Length Limit', group = g_gap)
+int limitBoxLengthIntInput = input.int(defval = 300, title = '', inline = 'Length Limit', minval = 1, group = g_gap)
 
-float i_fvg_height = input.float(defval=3.6, title='FVG Height %', minval=0, step=0.1, tooltip=tt_fvg_h, group=g_fvg)
-bool i_fvg_ln_show = input.bool(defval=true, title='FVG Line Fib Value  ', inline='fvg_f', group=g_fvg)
-float i_fib_val = input.float(defval=0, title='', minval=0, maxval=1, step=0.1, tooltip=tt_fvg_fib, inline='fvg_f', group=g_fvg)
-bool i_fvg_fill = input.bool(defval=true, title='Break FVG Line Touch', group=g_fvg)
-int i_fvg_showlast = input.int(defval=60, title="Display Past", minval=0, tooltip="Number of days to lookback.")
+//___________________________ Menu Indicators End
 
-g_fvg_s = "FVG Settings"
-bool i_fvg_1_bear_show = input.bool(defval=true, title="Unfilled Bearish    ", inline ='be', group=g_fvg_s)
-color i_fvg_1_bear_color = input.color(defval=#FF5252, title="", inline ='be', group=g_fvg_s)
-bool i_fvg_1_bull_show = input.bool(defval=true, title="Unfilled Bullish    ", inline ='bu', group=g_fvg_s)
-color i_fvg_1_bull_color = input.color(defval=#26A69A, title="", inline ='bu', group=g_fvg_s)
+//___________________________ Menu Additional Fiters Start
 
-f_fvg_c = 'Conditions / Alerts'
-tt_fvg_ff = "If toggled OFF, FVGs and CEs will paint until FVG has been completely filled.\n\nThis threshold is used for Above/Below threshold Alert conditions too (but does not effect the IOFED alerts):\ni.e. this will determine if your 'ABOVE threshold' alert fires when price hits latest active FVG CE ABOVE or latest active FVG Full Fill ABOVE\n\nAlerts are set by clicking the three dots on the indicator display line."
-bool i_fvg_hide_filled = input.bool(defval=false, title="Hide Filled", group=g_fvg_s)
-color i_fvg_1_bull_fill_color = input.color(defval=color.white, title="Filled Bearish", group = g_fvg_s)
-color i_fvg_1_bear_fill_color = input.color(defval=color.white, title="Filled Bullish", group = g_fvg_s)
-int i_fvg_1_bx_bgcolor_transp = input.int(defval=90, title="Box Transparency", minval=0, maxval=100, group=g_fvg_s)
-string i_fvg_1_ln_style = input.string(defval=line.style_dashed, title="Line Style", options=[line.style_solid, line.style_dashed, line.style_dotted], group=g_fvg_s)
-
-//_____________________________ Menu FVG End
-
-//_____________________________ Menu Additional Fiters Start
-
-g_af = '███████████████ Additional Fiters ███████████████'
+g_af = '██████████████ Additional Fiters ██████████████'
 tt_pchg = 
  "• If '% Change Above/Below +/-' is 4, it means relative volume is considered when the price change is above 4%." +
  "\n• A value of 4% is positive for bullish scenarios and negative for bearish scenarios." +
@@ -86,7 +59,7 @@ tt_atr =
 tt_atr_mul =
  "• Higher multiplier value filters a longer or more volatile signal candle."
 tt_bf =
- "• If the input is '60', it means the body covers over 80% of the candle."
+ "• If the input is '80', it means the body covers over 80% of the candle."
 tt_bs =
  "• 2 means the candle is 2 times larger than the previous candle."
 tt_vol =
@@ -95,89 +68,242 @@ tt_rv =
  "• Filter out a candle when its volume is greater than the Relative Volume."
 tt_tf =
  "• Filter out a signals between the given Time."
+tt_df =
+ "• Filter out a signals on the given Date." +
+  "\n• This Time Filter is applicable only for 'Displacement Candles'."
 
-bool i_pchg_filter = input.bool(defval=false, title='Apply % Change Filter', tooltip=tt_pchg, group=g_af)
-float i_pchg_above_below = input.float(defval=2, title='% Change Above/Below +/-', minval=0, group=g_af)
+bool i_pchg_filter = input.bool(defval = false, title = 'Apply % Change Filter', tooltip = tt_pchg, group = g_af)
+float i_pchg_above_below = input.float(defval = 2, title = '% Change Above/Below +/-', minval = 0, group = g_af)
 
-bool i_vol_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vpchg, group=g_af)
-int i_vol_above = input.int(defval=500000, title='Volume Above', minval=0, group=g_af)
+bool i_vol_filter = input.bool(defval = false, title = 'Apply Volume Filter', tooltip = tt_vpchg, group = g_af)
+int i_vol_above = input.int(defval = 500000, title = 'Volume Above', minval = 0, group = g_af)
 
-bool i_vol_pchg_filter = input.bool(defval=false, title='Apply Volume % Change Filter', tooltip=tt_vpchg, group=g_af)
-float i_vol_pchg_above = input.float(defval=0, title='Volume % Change Above', minval=0, group=g_af)
+bool i_vol_pchg_filter = input.bool(defval = false, title = 'Apply Volume % Change Filter', tooltip = tt_vpchg, group = g_af)
+float i_vol_pchg_above = input.float(defval = 0, title = 'Volume % Change Above', minval = 0, group = g_af)
 
-bool i_atr_filter = input.bool(defval=true, title='Apply ATR Filter', tooltip=tt_atr, group=g_af)
-int i_atr_length = input.int(defval=14, minval=1, title='ATR Length', group=g_af)
-float i_atr_multi = input.float(defval=1, title='ATR Multiplier', minval=1, group=g_af)
+bool i_atr_filter = input.bool(defval = false, title = 'Apply ATR Filter', tooltip = tt_atr, group = g_af)
+int i_atr_length = input.int(defval = 14, minval = 1, title = 'ATR Length', group = g_af)
+float i_atr_multi = input.float(defval = 1, title = 'ATR Multiplier', minval = 1, group = g_af)
 
-bool i_body_filter = input.bool(defval=true, title='Apply Body % Filter', tooltip=tt_bf, group=g_af)
-float i_body_percent = input.float(defval=60, title='Body % Above', minval=0, maxval=100, group=g_af) / 100
+bool i_body_filter = input.bool(defval = false, title = 'Apply Body % Filter', tooltip = tt_bf, group = g_af)
+float i_body_percent = input.float(defval = 70, title = 'Body % Above', minval = 0, maxval = 100, group = g_af) / 100
 
-bool i_body_size_filter = input.bool(defval=false, title='Apply Body Size Filter', tooltip=tt_bs, group=g_af)
-int i_body_size_multiplier = input.int(defval=2, title='Body Size Multiplier (x)', minval=0,  group=g_af)
+bool i_body_size_filter = input.bool(defval = false, title = 'Apply Body Size Filter', tooltip = tt_bs, group = g_af)
+int i_body_size_multiplier = input.int(defval = 2, title = 'Body Size Multiplier (x)', minval = 0, group = g_af)
 
-bool i_volume_filter = input.bool(defval=false, title='Apply Volume Filter', tooltip=tt_vol, group=g_af)
-int i_vol_sma_length = input.int(defval=20, minval=1, title='Volume SMA Length', group=g_af)
+bool i_volume_filter = input.bool(defval = false, title = 'Apply Volume Filter', tooltip = tt_vol, group = g_af)
+int i_vol_sma_length = input.int(defval = 20, minval = 1, title = 'Volume SMA Length', group = g_af)
 
-bool i_rel_vol_filter = input.bool(defval=false, title='Apply Relative Volume Filter', tooltip=tt_rv, group=g_af)
-int i_rel_vol_avg_vol_len = input.int(defval=90, title='Relative Volume Length', minval=2, group=g_af)
-float i_rel_vol_avg_vol_multi = input.float(defval=5, title='Rel Vol SMA Multiplier', minval=0, group=g_af)
+bool i_rel_vol_filter = input.bool(defval = false, title = 'Apply Relative Volume Filter', tooltip = tt_rv, group = g_af)
+int i_rel_vol_avg_vol_len = input.int(defval = 90, title = 'Relative Volume Length', minval = 2, group = g_af)
+float i_rel_vol_avg_vol_multi = input.float(defval = 5, title = 'Rel Vol SMA Multiplier', minval = 0, group = g_af)
 
-bool i_time_filter = input.bool(defval=false, title='Apply Time Filter', tooltip=tt_tf, group=g_af)
-int i_hour_1 = input.int(defval=9, minval=0, title='Time From', inline='t_1', group=g_af)
-int i_minute_1 = input.int(defval=15, minval=0, title=':', inline='t_1', group=g_af)
-int i_hour_2 = input.int(defval=10, minval=0, title='Time To ', inline='t_2', group=g_af)
-int i_minute_2 = input.int(defval=15, minval=0, title=':', inline='t_2', group=g_af)
+bool i_time_filter = input.bool(defval = false, title = 'Apply Time Filter', tooltip = tt_tf, group = g_af)
+int i_hour_1 = input.int(defval = 9, minval = 0, title = 'Time From', inline = 't_1', group = g_af)
+int i_minute_1 = input.int(defval = 15, minval = 0, title = ':', inline = 't_1', group = g_af)
+int i_hour_2 = input.int(defval = 10, minval = 0, title = 'Time To ', inline = 't_2', group = g_af)
+int i_minute_2 = input.int(defval = 15, minval = 0, title = ':', inline = 't_2', group = g_af)
 
-//_____________________________ Menu Additional Fiters End
+bool i_date_filter = input.bool(defval = false, title = 'Apply Date Filter', tooltip = tt_df, group = g_af)
+int i_day = input.int(defval = 25, minval = 1, maxval = 31, title = 'Day', group = g_af)
+int i_month = input.int(defval = 10, minval = 1, maxval = 12, title = 'Month', group = g_af)
+int i_year = input.int(defval = 2024, minval = 0, title = 'Year', group = g_af)
 
-//_____________________________ Menu Table Start
+//___________________________ Menu Additional Fiters End
+
+//___________________________ Menu Table Start
 
 g_dtb = '█████████████████ Data Table █████████████████'
-bool i_tbl_data_show  = input.bool(defval=true, title='Display Table', group=g_dtb)
-string i_tbl_data_pos = input.string(defval=position.bottom_right, title='Position', options=[position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group=g_dtb)
-string i_tbl_data_txt_size = input.string(defval=size.normal, title='Size', options=[size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group=g_dtb)
+bool i_tbl_data_show = input.bool(defval = true, title = 'Display Table', group = g_dtb)
+string i_tbl_data_pos = input.string(defval = position.bottom_right, title = 'Position', options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = g_dtb)
+string i_tbl_data_txt_size = input.string(defval = size.normal, title = 'Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = g_dtb)
 
-//_____________________________ Menu Table End
+//___________________________ Menu Table End
 
-//_____________________________ Chart Settings Start
+//___________________________ Chart Settings Start
 
 g_ch = '███████████████ Chart Settings ███████████████'
-color i_pos_dark_color = input.color(defval=#03110F, title='Positive Dark', group=g_ch)
-color i_pos_color = input.color(defval=#26A69A, title='Positive Mid', group=g_ch)
-color i_pos_light_color = input.color(defval=#ACE5DC, title='Positive Light', group=g_ch)
-color i_neg_light_color = input.color(defval=#FCCBCD, title='Negative Light', group=g_ch)
-color i_neg_color = input.color(defval=#FF5252, title='Negative Mid', group=g_ch)
-color i_neg_dark_color = input.color(defval=#180809, title='Negative Dark', group=g_ch)
-//color i_indicator_color = input.color(defval=#2962FF, title='Indicator', group=g_ch)
-//color i_signal_color = input.color(defval=#FF6D00, title='Signal', group=g_ch)
-color i_neu_color = input.color(defval=#D1D4DC, title='Neutral Light', group=g_ch)
-color i_neu_mid_color = input.color(defval=#2A2E39, title='Neutral Mid', group=g_ch)
-color i_neu_dark_color = input.color(defval=#141516, title='Neutral Dark', group=g_ch)
+color i_pos_dark_color = input.color(defval = #03110F, title = 'Positive Dark', group = g_ch)
+color i_pos_color = input.color(defval = #089981, title = 'Positive Mid', group = g_ch)
+color i_pos_light_color = input.color(defval = #ACE5DC, title = 'Positive Light', group = g_ch)
+color i_neg_light_color = input.color(defval = #FCCBCD, title = 'Negative Light', group = g_ch)
+color i_neg_color = input.color(defval = #F23645, title = 'Negative Mid', group = g_ch)
+color i_neg_dark_color = input.color(defval = #180809, title = 'Negative Dark', group = g_ch)
+color i_indicator_color = input.color(defval = #2962FF, title = 'Indicator', group = g_ch)
+color i_signal_color = input.color(defval = #FB8C00, title = 'Signal', group = g_ch)
+color i_neu_color = input.color(defval = #9598A1, title = 'Neutral Light', group = g_ch)
+color i_neu_mid_color = input.color(defval = #2A2E39, title = 'Neutral Mid', group = g_ch)
+color i_neu_dark_color = input.color(defval = #141516, title = 'Neutral Dark', group = g_ch)
 
-//_____________________________ Chart Settings End
+float i_transp = input.float(defval=70, title="Transp", minval = 0, maxval = 100, group=g_ch)
 
-//_____________________________ Cumulative Percentage Change Start
+//___________________________ Chart Settings End
+
+//___________________________ FVG Start
+
+type AlertInfo
+    int countOpenGap
+    int countClosedGap
+
+method hasOpenedGap(AlertInfo this) =>
+    this.countOpenGap > 0
+
+method hasClosedGap(AlertInfo this) =>
+    this.countClosedGap > 0
+
+AlertInfo alertInfo = AlertInfo.new(0, 0)
+
+//@type A representation of a chart gap and all box drawings that it consists of.
+//@field isActive If 'true', the gap has not yet been closed and is still being extended on the chart.
+//@field isBull The direction of the gap: 'true' for upward gaps and 'false' for downward ones.
+//@field inactiveBoxes An array of all boxes that have been drawn for this gap. The last element of the array is the box on the chart that is currently extended further.
+type Gap
+    bool isActive
+    bool isBull
+    array<box> boxes
+
+//@function Deletes all of the boxes that were drawn to represent the gap.
+method delete(Gap this) =>
+    for _box in this.boxes
+        _box.delete()
+
+add_transp = 20
+
+//@function Closes the gap partially, stopping the previous box and creating a new, smaller box to continue the gap instead.
+method partialClose(Gap this) =>
+    activeBox = this.boxes.last()
+    activeBox.set_extend(extend.none)
+
+    top = this.isBull ? activeBox.get_top() : low
+    bottom = this.isBull ? high : activeBox.get_bottom()
+
+    this.boxes.push(box.new(
+      bar_index,
+      top,
+      bar_index,
+      bottom, 
+      this.isBull ? color.new(i_neg_color, i_transp + add_transp) : color.new(i_pos_color, i_transp + add_transp), 
+      bgcolor = this.isBull ? color.new(i_neg_color, i_transp) : color.new(i_pos_color, i_transp)))
+    
+
+//@function Closes the gap fully, stopping the box from being extended.
+method fullClose(Gap this) =>
+    alertInfo.countClosedGap += 1
+    activeBox = this.boxes.last()
+    activeBox.set_extend(extend.none)
+    this.isActive := false
+    if closeGapsPartially
+        activeBox.delete()    
+
+method checkForClose(Gap this) =>
+    if this.isActive
+        activeBox = this.boxes.last()
+        top = activeBox.get_top() 
+        bot = activeBox.get_bottom()
+        isBull = this.isBull
+        activeBox.set_right(bar_index)
+
+        if (high > bot and isBull) or (low < top and not isBull)
+            if closeGapsPartially
+                this.partialClose()                
+            else
+                this.fullClose()
+
+        bool forceCloseBoxExceededLengthLimit = (limitBoxLengthBoolInput and bar_index - activeBox.get_left() >= limitBoxLengthIntInput)
+        if ((high > top and isBull) or (low < bot and not isBull)) or forceCloseBoxExceededLengthLimit
+            this.fullClose()
+
+var allGaps = array.new<Gap>()
+
+// Detect gaps.
+isFVGDown = high < low[2] and low[2] - high >= minimalDeviationInput
+isFVGUp = low > high[2] and low - high[2] >= minimalDeviationInput
+isFVG = isFVGDown or isFVGUp
+boxBorderColor = isFVGDown ? color.new(i_neg_color, i_transp + add_transp) : color.new(i_pos_color, i_transp + add_transp)
+boxBgcolor = isFVGDown ? color.new(i_neg_color, i_transp) : color.new(i_pos_color, i_transp)
+
+registerNewGap(bool isFVGDown) => 
+    alertInfo.countOpenGap += 1
+    
+    newBox = box.new(
+      bar_index - 2,
+      (isFVGDown ? low[2] : low),
+      bar_index,
+      (isFVGDown ? high : high[2]),
+      border_color = boxBorderColor,
+      bgcolor = boxBgcolor,
+      extend = extend.right)
+
+    allGaps.push(Gap.new(true, isFVGDown, array.from(newBox)))
+
+    if allGaps.size() > boxLimitInput
+        allGaps.shift().delete()
+
+// Detect covering of gaps.
+for gap in allGaps
+    gap.checkForClose()
+
+// Add a box for each new gap, removing the oldest one if needed.
+if isFVG    
+    registerNewGap(isFVGDown)
+        
+if barstate.islastconfirmedhistory and allGaps.size() == 0
+    noGapText = "No gaps found on the current chart. \n The cause could be that some exchanges align the open of new bars on the close of the previous one, resulting in charts with no gaps. Alternatively, your Minimal Deviation might be too high."
+    var infoTable = table.new(position.bottom_right, 1, 1)
+    table.cell(infoTable, 0, 0, text = noGapText, text_color = chart.bg_color, bgcolor = chart.fg_color)
+
+//alertcondition(alertInfo.hasOpenedGap(), "New Gap Appeared", "A new gap has appeared.")
+//alertcondition(alertInfo.hasClosedGap(), "Gap Closed", "A gap was closed.")
+
+// Define numeric values for plotting gaps
+var isFVGDown_top = float(na)
+var isFVGDown_bottom = float(na)
+var float FVGDownPercent = na
+if isFVGDown
+    isFVGDown_top := low[2]
+    isFVGDown_bottom := high
+    FVGDownPercent := (low[2] - high) / low[2] * 100
+    FVGDownPercent
+
+var isFVGUp_top = float(na)
+var isFVGUp_bottom = float(na)
+var float FVGUpPercent = na
+if isFVGUp
+    isFVGUp_top := low
+    isFVGUp_bottom := high[2]
+    FVGUpPercent := (low - high[2]) / high[2] * 100
+    FVGUpPercent
+
+// Plot
+plot(series = isFVGDown_top, title = 'FVG Down Top', color = i_neg_color, display = display.none)
+plot(series = isFVGDown_bottom, title = 'FVG Down Bottom', color = i_neg_color, display = display.none)
+plot(series = isFVGUp_top, title = 'FVG Up Top', color = i_pos_color, display = display.none)
+plot(series = isFVGUp_bottom, title = 'FVG Up Bottom', color = i_pos_color, display = display.none)
+
+//___________________________ FVG End
+
+//___________________________ Cumulative Percentage Change Start
 
 // Function to calculate Daily Cumulative Percentage Change of Close Price
 cumulative_percentage_change() =>
     var float _cum_pct_change = na
     _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
     _daily_pct_change = na(close[1]) ? 0 : (close - close[1]) / close[1] * 100
-    _cum_pct_change := _is_new_day ? _daily_pct_change : (na(_cum_pct_change) ? _daily_pct_change : (_cum_pct_change + _daily_pct_change))
+    _cum_pct_change := bool(_is_new_day) ? _daily_pct_change : na(_cum_pct_change) ? _daily_pct_change : _cum_pct_change + _daily_pct_change
     _cum_pct_change
 
 // Calculate current cumulative percentage change
 cum_pchg = cumulative_percentage_change()
 
-//_____________________________ Cumulative Percentage Change End
+//___________________________ Cumulative Percentage Change End
 
-//_____________________________ Cumulative Volume Percentage Change Start
+//___________________________ Cumulative Volume Percentage Change Start
 
 // Function to calculate Daily Cumulative Volume
 cumulative_volume() =>
     var float _cum_vol = na
     _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
-    _cum_vol := _is_new_day ? volume : (na(_cum_vol) ? volume : (_cum_vol + volume))
+    _cum_vol := bool(_is_new_day) ? volume : na(_cum_vol) ? volume : _cum_vol + volume
     _cum_vol
 
 // Calculate current and previous day cumulative volumes
@@ -187,15 +313,17 @@ var float prev_cum_vol = na
 if ta.change(time('D')) != 0
     prev_cum_vol := current_cum_vol
     current_cum_vol := volume
+    current_cum_vol
 else
-    current_cum_vol += volume
+    current_cum_vol := current_cum_vol + volume
+    current_cum_vol
 
 // Calculate Cumulative Volume Percentage Change
 cum_vol_pchg = (current_cum_vol - nz(prev_cum_vol, current_cum_vol)) / nz(prev_cum_vol, current_cum_vol) * 100
 
-//_____________________________ Cumulative Volume Percentage Change End
+//___________________________ Cumulative Volume Percentage Change End
 
-//_____________________________ Additional Filters Start
+//___________________________ Additional Filters Start
 
 // % Change Filter
 bool pchg_above_filter = true
@@ -203,38 +331,45 @@ bool pchg_below_filter = true
 if i_pchg_filter
     pchg_above_filter := cum_pchg > i_pchg_above_below
     pchg_below_filter := cum_pchg < -i_pchg_above_below
+    pchg_below_filter
 
 // Volume Filter
 bool vol_filter = true
 if i_vol_filter
     vol_filter := current_cum_vol >= i_vol_above
+    vol_filter
 
 // Volume % Change Filter
 bool vol_pchg_filter = true
 if i_vol_pchg_filter
     vol_pchg_filter := cum_vol_pchg >= i_vol_pchg_above
+    vol_pchg_filter
 
 // ATR Filter
 bool atr_filter = true
 if i_atr_filter
-    atr_filter := (high - low) > ta.atr(i_atr_length) * i_atr_multi
+    atr_filter := high - low > ta.atr(i_atr_length) * i_atr_multi
+    atr_filter
 
 // Body Percent Filter
 bool body_filter = true
 if i_body_filter
-    body_filter := (math.abs(close - open)) / (high - low) >= i_body_percent
+    body_filter := math.abs(close - open) / (high - low) >= i_body_percent
+    body_filter
 
 // Body Size Filter
 bool body_size_filter = true
 if i_body_size_filter
-    body_size_filter := (math.abs(close - open)) / (high - low) >= i_body_percent and (high - low) >= (high[1] - low[1]) * i_body_size_multiplier
+    body_size_filter := math.abs(close - open) / (high - low) >= i_body_percent and high - low >= (high[1] - low[1]) * i_body_size_multiplier
+    body_size_filter
 
 // Volume SMA Filter
 bool volume_filter = true
 if i_volume_filter
     volume_filter := volume > ta.sma(volume, i_vol_sma_length)
+    volume_filter
 
-// FVG Fill Filter
+// Continuous Signals Filter
 average_volume = ta.sma(volume, i_rel_vol_avg_vol_len)
 relative_volume = volume / average_volume[1]
 rel_vol_sma_multiplier = ta.sma(relative_volume, i_rel_vol_avg_vol_len) * i_rel_vol_avg_vol_multi
@@ -242,228 +377,335 @@ rel_vol_sma_multiplier = ta.sma(relative_volume, i_rel_vol_avg_vol_len) * i_rel_
 bool rel_vol_filter = true
 if i_rel_vol_filter
     rel_vol_filter := relative_volume > rel_vol_sma_multiplier
+    rel_vol_filter
 
 // Time Filter
 bool time_filter = true
 if i_time_filter
-    time_filter := (hour > i_hour_1 or (hour == i_hour_1 and minute >= i_minute_1)) and (hour < i_hour_2 or (hour == i_hour_2 and minute < i_minute_2))
+    time_filter := (hour > i_hour_1 or hour == i_hour_1 and minute >= i_minute_1) and (hour < i_hour_2 or hour == i_hour_2 and minute < i_minute_2)
+    time_filter
 
-//_____________________________ Additional Filters End
+// Date Filter
+bool date_filter = true
+if i_date_filter
+    date_filter := year == i_year and month == i_month and dayofmonth == i_day
+    date_filter
 
-//_____________________________ Fibonacci Start
+//___________________________ Additional Filters End
+
+//___________________________ Fibonacci Start
 
 // Fibonacci Function
 fibonacci(bool calc_from_high, high_value, low_value, float fib_value) =>
-    if (calc_from_high)
+    if calc_from_high
         low_value + (high_value - low_value) * fib_value
     else
         high_value - (high_value - low_value) * fib_value
 
-//_____________________________ Fibonacci End
+//___________________________ Fibonacci End
 
-//_____________________________ FVG Start
+//___________________________ Signals Start
 
-// Acknowledgement & Reference
-// Trader: 'twingall'
-// Indicator Title: 'FVGs & CEs + Alerts: simple & efficient method'
-// Indicator Link: 'https://www.tradingview.com/script/5MXFwNal-FVGs-CEs-Alerts-simple-efficient-method/'
+//___________________________ Continuous Signals Start
 
-// Common Inputs
-color no_color = #00000000
-one_day = 24*3600*1000
+//___________________________ Short Continuous Signals Start
 
-var box box_bull = na, var box box_bear = na, var line line_bull = na, var line line_bear = na
-var array<box> box_bull_arr = array.new<box>(0), var array<line> line_bull_arr = array.new<line>(0)
-var array<box> box_bear_arr = array.new<box>(0), var array<line> line_bear_arr = array.new<line>(0)
-
-// FVG Size
-// Acknowledgement & Reference
-// Trader: 'steven_futures'
-// Indicator Title: 'Fair Value Gap Finder with Integrated Gann Box'
-// Indicator Link: 'https://www.tradingview.com/script/qDtGXb9l-Fair-Value-Gap-Finder-with-Integrated-Gann-Box/'
-
-fvg_percent_bear = 
- low[3] > high[1] and 
- pchg_below_filter[2] and
- vol_filter[2] and
- vol_pchg_filter[2] and
- atr_filter[2] and
- body_filter[2] and
- body_size_filter[2] and
- volume_filter[2] and
- rel_vol_filter[2] and
- time_filter[2] ?
- ((low[3] - high[1])/low[3]) * 100 : 0
-
-fvg_percent_bull = 
- low[1] > high[3] and
- pchg_above_filter[2] and
- vol_filter[2] and
- vol_pchg_filter[2] and
- atr_filter[2] and
- body_filter[2] and
- body_size_filter[2] and
- volume_filter[2] and
- rel_vol_filter[2] and
- time_filter[2] ?
- ((low[1] - high[3])/low[1]) * 100 : 0
-
-fvg_bear = fvg_percent_bear > i_fvg_height and time > timenow - i_fvg_showlast * one_day
-fvg_bull = fvg_percent_bull > i_fvg_height and time > timenow - i_fvg_showlast * one_day
-
-// Bear FVG
-var bear_fvg_bottom = float(na)
-var bear_fvg_line_val = float(na)
-
-if fvg_bear and i_fvg_1_bear_show
-    bear_fvg_bottom := high[1]
-    bear_fvg_line_val := fibonacci(false, low[3], high[1], i_fib_val)
-
-    box_bear_arr.push(box.new(bar_index-3, low[3], bar_index, bear_fvg_bottom, bgcolor = color.new(i_fvg_1_bear_color, i_fvg_1_bx_bgcolor_transp), border_color = color.new(i_fvg_1_bear_color, i_fvg_1_bx_bgcolor_transp)))
-    line_bear_arr.push(line.new(bar_index-3, bear_fvg_line_val, bar_index, bear_fvg_line_val, color = i_fvg_ln_show ? i_fvg_1_bear_color : no_color, style = i_fvg_1_ln_style))
-
-// Bull FVG
-var bull_fvg_top = float(na)
-var bull_fvg_line_val = float(na)
-
-if fvg_bull and i_fvg_1_bull_show
-    bull_fvg_top := low[1]
-    bull_fvg_line_val := fibonacci(true, low[1], high[3], i_fib_val)
-
-    box_bull_arr.push(box.new(bar_index-3, bull_fvg_top, bar_index, high[3], bgcolor = color.new(i_fvg_1_bull_color, i_fvg_1_bx_bgcolor_transp), border_color = color.new(i_fvg_1_bull_color, i_fvg_1_bx_bgcolor_transp)))
-    line_bull_arr.push(line.new(bar_index-3, bull_fvg_line_val, bar_index, bull_fvg_line_val, color = i_fvg_ln_show ? i_fvg_1_bull_color : no_color, style = i_fvg_1_ln_style))
-
-// Function to simplify setting background color, border color, and line color
-setcolor(int id, int transparency) =>
-    _color = id == 1 ? color.new(i_fvg_1_bull_fill_color, transparency) : color.new(i_fvg_1_bear_fill_color, transparency)
-
-var array<int> count_array = array.new<int>(0)
-var array<int> count_array_iofed = array.new<int>(0)
-
-//modified form of @Bjorgum's looping function.  This stops boxes/lines painting when price passes to or through them
-extendAndRemoveBx(array<box> boxArray, array<line> lineArray, array<int> countArr1, array<int> countArr2, simple bool isBull, int maxSize) => 
-    if boxArray.size() > 0
-        for i = boxArray.size() -1 to 0
-            line ln = lineArray.get(i)
-            box bx = boxArray.get(i)
-            bx.set_right(bar_index)
-            ln.set_x2(bar_index)       
-            float price = i_fvg_fill?ln.get_price(bar_index):(isBull?bx.get_top():bx.get_bottom())    
-            float price_IOFED = isBull?bx.get_bottom():bx.get_top()            
-            int m = isBull ? 1 : -1
-            float hiLo = isBull ? high : low  
-            if hiLo * m > price * m 
-                boxArray.remove(i)
-                lineArray.remove(i)
-                countArr1.push(isBull ? 1 : -1) //for 'above/below threshold alerts; counter sum will decrement 1 on lower threshold hit, increment 1 on upper threshold hit
-                bx.set_bgcolor(setcolor(m, i_fvg_1_bx_bgcolor_transp))
-                bx.set_border_color(setcolor(m, i_fvg_1_bx_bgcolor_transp))
-                ln.set_color(setcolor(m, i_fvg_1_bx_bgcolor_transp))
-                if i_fvg_hide_filled
-                    bx.set_bgcolor(no_color)
-                    bx.set_border_color(no_color)
-                    ln.set_color(no_color)
-            if hiLo * m > price_IOFED * m
-                countArr2.push(isBull ? 1 : -1)
-
-    if boxArray.size() > maxSize
-        box.delete(boxArray.shift())
-        line.delete(lineArray.shift())
-
-extendAndRemoveBx(box_bear_arr,line_bear_arr,count_array,count_array_iofed, true, 12) //12 should be good for around 2200 bars of history
-extendAndRemoveBx(box_bull_arr, line_bull_arr,count_array,count_array_iofed, false, 12)
-
-upThresholdLst = array.sum(count_array)>array.sum(count_array)[1]
-dnThresholdLst = array.sum(count_array)<array.sum(count_array)[1]
-
-upIOFEDlast= array.sum(count_array_iofed)>array.sum(count_array_iofed)[1]
-dnIOFEDlast= array.sum(count_array_iofed)<array.sum(count_array_iofed)[1]
-
-// Alerts
-//alertcondition(upThresholdLst, "ABOVE threshold of latest active Up FVG (CE or fvg High)", "price has crossed threshold of latest active Up FVG")
-//alertcondition(dnThresholdLst, "BELOW threshold of latest active Down FVG (CE or fvg low)", "price has crossed threshold of latest active Down FVG")
-
-//alertcondition(upIOFEDlast, "IOFED into latest active Up FVG", "price has entered latest active UP FVG")
-//alertcondition(dnIOFEDlast, "IOFED into latest active Down FVG", "price has entered latest active Down FVG")
-
-//alertcondition(low[3] > high[1], "Simple alert: Down FVG (confirmed)", "Down FVG has formed (confirmed)")
-//alertcondition(high[3] < low[1], "Simple alert: Up FVG (confirmed)", "Up FVG has formed (confirmed)")
-
-//alertcondition(low[2] > high, "Simple alert: Down FVG (UN-confirmed)", "Down FVG has formed (un-confirmed)")
-//alertcondition(high[2] < low, "Simple alert: Up FVG (UN-confirmed)", "Up FVG has formed (un-confirmed)")
-
-//_____________________________ FVG End
-
-//_____________________________ Retracement Signals Start
-// Short Retracement Start
+//___________________________ Short Continuous Break Signals
 
 // Short Condition 1
-short_ret_cont_1 = 
- close < bear_fvg_bottom
+short_cont_1 = 
+ isFVGDown and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
 // Short Condition 2
-short_ret_cont_2 = 
- high > bear_fvg_line_val and
+short_cont_2 = 
+ ta.crossover(high, isFVGDown_bottom) and 
+ time_filter and
+ date_filter and
  barstate.isconfirmed
 
-// Short Retracement Trigger
-var short_break_current_state = 0
-short_break_previous_state = nz(short_break_current_state[1])
-short_break_current_state := short_break_previous_state == 2 ? 0 : short_break_previous_state
-if short_ret_cont_1 and short_break_current_state == 0
-    short_break_current_state := 1
-if short_ret_cont_2 and short_break_current_state == 1
-    short_break_current_state := 2
+var short_cont_2_low = float(na)
+if short_cont_2
+    short_cont_2_low := low
+    short_cont_2_low
 
-short_ret_trigger = short_break_current_state == 2 ? true : false
+// Short Condition 2 Confirmed
+short_cont_2_conf = 
+ ta.crossunder(close, short_cont_2_low) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-//___________________________ Short Retracement End
+// Short Condition 3
+short_cont_3 = 
+ ta.crossover(high, isFVGDown_top) and 
+ close < isFVGDown_top and
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-//___________________________ Long Retracement Start
-// Long Retracement Start
+var short_cont_3_low = float(na)
+if short_cont_3
+    short_cont_3_low := low
+    short_cont_3_low
+
+// Short Condition 3 Confirmed
+short_cont_3_conf = 
+ ta.crossunder(close, short_cont_3_low) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Short Condition 4
+short_cont_4 = 
+ ta.crossover(close, isFVGDown_top) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Short First Touch
+var short_first_touch_current_state = 0
+short_first_touch_prev_state = nz(short_first_touch_current_state[1])
+short_first_touch_current_state := short_first_touch_prev_state == 2 ? 0 : short_first_touch_prev_state
+if short_cont_1 and short_first_touch_current_state == 0
+    short_first_touch_current_state := 1
+    short_first_touch_current_state
+if short_cont_2 and short_first_touch_current_state == 1
+    short_first_touch_current_state := 2
+    short_first_touch_current_state
+
+short_first_touch_signal = short_first_touch_current_state == 2 ? true : false
+
+// Short Confirmed First Touch
+var short_first_touch_conf_current_state = 0
+short_first_touch_conf_prev_state = nz(short_first_touch_conf_current_state[1])
+short_first_touch_conf_current_state := short_first_touch_conf_prev_state == 3 ? 0 : short_first_touch_conf_prev_state
+if short_cont_1 and short_first_touch_conf_current_state == 0
+    short_first_touch_conf_current_state := 1
+    short_first_touch_conf_current_state
+if short_cont_2 and short_first_touch_conf_current_state == 1
+    short_first_touch_conf_current_state := 2
+    short_first_touch_conf_current_state
+if short_cont_2_conf and short_first_touch_conf_current_state == 2
+    short_first_touch_conf_current_state := 3
+    short_first_touch_conf_current_state
+
+short_first_touch_conf_signal = short_first_touch_conf_current_state == 3 ? true : false
+
+// Short Full Fill
+var short_full_fill_current_state = 0
+short_full_fill_prev_state = nz(short_full_fill_current_state[1])
+short_full_fill_current_state := short_full_fill_prev_state == 2 ? 0 : short_full_fill_prev_state
+if short_cont_1 and short_full_fill_current_state == 0
+    short_full_fill_current_state := 1
+    short_full_fill_current_state
+if short_cont_3 and short_full_fill_current_state == 1
+    short_full_fill_current_state := 2
+    short_full_fill_current_state
+
+short_full_fill_signal = short_full_fill_current_state == 2 ? true : false
+
+// Short Full Fill Confirmed
+var short_full_fill_conf_current_state = 0
+short_full_fill_conf_prev_state = nz(short_full_fill_conf_current_state[1])
+short_full_fill_conf_current_state := short_full_fill_conf_prev_state == 3 ? 0 : short_full_fill_conf_prev_state
+if short_cont_1 and short_full_fill_conf_current_state == 0
+    short_full_fill_conf_current_state := 1
+    short_full_fill_conf_current_state
+if short_cont_3 and short_full_fill_conf_current_state == 1
+    short_full_fill_conf_current_state := 2
+    short_full_fill_conf_current_state
+if short_cont_3_conf and short_full_fill_conf_current_state == 2
+    short_full_fill_conf_current_state := 3
+    short_full_fill_conf_current_state
+
+short_full_fill_conf_signal = short_full_fill_conf_current_state == 3 ? true : false
+
+// Short Reversal
+var short_reversal_current_state = 0
+short_reversal_prev_state = nz(short_reversal_current_state[1])
+short_reversal_current_state := short_reversal_prev_state == 2 ? 0 : short_reversal_prev_state
+if short_cont_1 and short_reversal_current_state == 0
+    short_reversal_current_state := 1
+    short_reversal_current_state
+if short_cont_4 and short_reversal_current_state == 1
+    short_reversal_current_state := 2
+    short_reversal_current_state
+
+short_reversal_signal = short_reversal_current_state == 2 ? true : false
+
+//___________________________ Short Continuous Signals End
+
+//___________________________ Long Continuous Signals Start
+
+//___________________________ Long Continuous Break Signals
 
 // Long Condition 1
-long_ret_cont_1 = 
- close > bull_fvg_top
-
-// Long Condition 2
-long_ret_cont_2 = 
- low < bull_fvg_line_val and 
+long_cont_1 = 
+ isFVGUp and 
+ time_filter and
+ date_filter and
  barstate.isconfirmed
 
-// Long  Retracement Trigger
-var long_break_current_state = 0
-long_break_previous_state = nz(long_break_current_state[1])
-long_break_current_state := long_break_previous_state == 2 ? 0 : long_break_previous_state
-if long_ret_cont_1 and long_break_current_state == 0
-    long_break_current_state := 1
-if long_ret_cont_2 and long_break_current_state == 1
-    long_break_current_state := 2
+// Long Condition 2
+long_cont_2 = 
+ ta.crossunder(low, isFVGUp_top) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-long_ret_trigger = long_break_current_state == 2 ? true : false
+var long_cont_2_high = float(na)
+if long_cont_2
+    long_cont_2_high := high
+    long_cont_2_high
 
-//___________________________ Long Retracement End
+// Long Condition 2 Confirmed
+long_cont_2_conf = 
+ ta.crossover(close, long_cont_2_high) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-//_______________________ Signals End
+// Long Condition 3
+long_cont_3 = 
+ ta.crossunder(low, isFVGUp_bottom) and 
+ close > isFVGUp_bottom and
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-//___________________________ Plot Retracements
+var long_cont_3_high = float(na)
+if long_cont_3
+    long_cont_3_high := high
+    long_cont_3_high
+    
+// Long Condition 3 Confirmed
+long_cont_3_conf = 
+ ta.crossover(close, long_cont_3_high) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+ 
+// Long Condition 4
+long_cont_4 = 
+ ta.crossunder(close, isFVGUp_bottom) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
 
-plotshape(series=i_scr_show_short and i_scr_choose == 'FVG Fill'and short_ret_trigger ? 3 : na, title='Continuous Short Shape', style=shape.triangledown, location=location.abovebar, color=i_neg_light_color, size=size.tiny, force_overlay=true)
-plotshape(series=i_scr_show_long and i_scr_choose == 'FVG Fill' and long_ret_trigger ? 3 : na, title='Continuous Long Shape', style=shape.triangleup, location=location.belowbar, color=i_pos_light_color, size=size.tiny, force_overlay=true)
-barcolor(color=i_scr_show_short and i_scr_choose == 'FVG Fill' and short_ret_trigger ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'FVG Fill' and long_ret_trigger ? i_pos_light_color : na, title='Continuous Candle')
-//bgcolor(color=i_scr_show_short and i_scr_choose == 'FVG Fill' and short_ret_trigger ? color.new(i_neg_color, 90) : i_scr_show_long and i_scr_choose == 'FVG Fill' and long_ret_trigger ? color.new(i_pos_color, 90) : na, title='Continuous Bgcolor')
+// Long First Touch
+var long_first_touch_current_state = 0
+long_first_touch_prev_state = nz(long_first_touch_current_state[1])
+long_first_touch_current_state := long_first_touch_prev_state == 2 ? 0 : long_first_touch_prev_state
+if long_cont_1 and long_first_touch_current_state == 0
+    long_first_touch_current_state := 1
+    long_first_touch_current_state
+if long_cont_2 and long_first_touch_current_state == 1
+    long_first_touch_current_state := 2
+    long_first_touch_current_state
 
-//_____________________________ Retracement Signals End
+long_first_touch_signal = long_first_touch_current_state == 2 ? true : false
 
-//_____________________________ Signals End
+// Long First Touch Confirmed
+var long_first_touch_conf_current_state = 0
+long_first_touch_conf_prev_state = nz(long_first_touch_conf_current_state[1])
+long_first_touch_conf_current_state := long_first_touch_conf_prev_state == 3 ? 0 : long_first_touch_conf_prev_state
+if long_cont_1 and long_first_touch_conf_current_state == 0
+    long_first_touch_conf_current_state := 1
+    long_first_touch_conf_current_state
+if long_cont_2 and long_first_touch_conf_current_state == 1
+    long_first_touch_conf_current_state := 2
+    long_first_touch_conf_current_state
+if long_cont_2_conf and long_first_touch_conf_current_state == 2
+    long_first_touch_conf_current_state := 3
+    long_first_touch_conf_current_state
 
-//_____________________________ Data Table Start
+long_first_touch_conf_signal = long_first_touch_conf_current_state == 3 ? true : false
+
+// Long Full Fill
+var long_full_fill_current_state = 0
+long_full_fill_prev_state = nz(long_full_fill_current_state[1])
+long_full_fill_current_state := long_full_fill_prev_state == 2 ? 0 : long_full_fill_prev_state
+if long_cont_1 and long_full_fill_current_state == 0
+    long_full_fill_current_state := 1
+    long_full_fill_current_state
+if long_cont_3 and long_full_fill_current_state == 1
+    long_full_fill_current_state := 2
+    long_full_fill_current_state
+
+long_full_fill_signal = long_full_fill_current_state == 2 ? true : false
+
+// Long Full Fill Confirmed
+var long_full_fill_conf_current_state = 0
+long_full_fill_conf_prev_state = nz(long_full_fill_conf_current_state[1])
+long_full_fill_conf_current_state := long_full_fill_conf_prev_state == 3 ? 0 : long_full_fill_conf_prev_state
+if long_cont_1 and long_full_fill_conf_current_state == 0
+    long_full_fill_conf_current_state := 1
+    long_full_fill_conf_current_state
+if long_cont_3 and long_full_fill_conf_current_state == 1
+    long_full_fill_conf_current_state := 2
+    long_full_fill_conf_current_state
+if long_cont_3_conf and long_full_fill_conf_current_state == 2
+    long_full_fill_conf_current_state := 3
+    long_full_fill_conf_current_state
+
+long_full_fill_conf_signal = long_full_fill_conf_current_state == 3 ? true : false
+
+// Long Reversal
+var long_reversal_current_state = 0
+long_reversal_prev_state = nz(long_reversal_current_state[1])
+long_reversal_current_state := long_reversal_prev_state == 2 ? 0 : long_reversal_prev_state
+if long_cont_1 and long_reversal_current_state == 0
+    long_reversal_current_state := 1
+    long_reversal_current_state
+if long_cont_4 and long_reversal_current_state == 1
+    long_reversal_current_state := 2
+    long_reversal_current_state
+
+long_reversal_signal = long_reversal_current_state == 2 ? true : false
+
+//___________________________ Long Continuous Signals End
+
+//___________________________ Plot Continuous Signals
+
+// 1
+plotchar(series = i_scr_show_short and i_scr_choose == 'First Touch' and short_first_touch_signal ? 3 : na, title = 'Short First Touch', char = '↷', location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotchar(series = i_scr_show_long and i_scr_choose == 'First Touch' and long_first_touch_signal ? 3 : na, title = 'Long First Touch', char = '⤻', location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and i_scr_choose == 'First Touch' and short_first_touch_signal ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'First Touch' and long_first_touch_signal ? i_pos_light_color : na, title = 'First Touch Candle')
+
+// 2
+plotshape(series = i_scr_show_short and i_scr_choose == 'First Touch Confirmed' and short_first_touch_conf_signal ? 4 : na, title = 'Short Confirmed First Touch', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotshape(series = i_scr_show_long and i_scr_choose == 'First Touch Confirmed' and long_first_touch_conf_signal ? 4 : na, title = 'Long Confirmed First Touch', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and i_scr_choose == 'First Touch Confirmed' and short_first_touch_conf_signal ? i_neg_light_color : i_scr_show_long and i_scr_choose == 'First Touch Confirmed' and long_first_touch_conf_signal ? i_pos_light_color : na, title = 'Confirmed First Touch Candle')
+
+// 3
+plotchar(series = i_scr_show_short and i_scr_choose == 'Full Fill' and short_full_fill_signal ? 3 : na, title = 'Short Full Fill', char = '↷', location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotchar(series = i_scr_show_long and i_scr_choose == 'Full Fill' and long_full_fill_signal ? 3 : na, title = 'Long Full Fill', char = '⤻', location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and i_scr_choose == 'Full Fill' and short_full_fill_signal ? i_pos_light_color : i_scr_show_long and i_scr_choose == 'Full Fill' and long_full_fill_signal ? i_neg_light_color : na, title = 'Full Fill Candle')
+
+// 4
+plotshape(series = i_scr_show_short and i_scr_choose == 'Full Fill Confirmed' and short_full_fill_conf_signal ? 4 : na, title = 'Short Confirmed Full Fill', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotshape(series = i_scr_show_long and i_scr_choose == 'Full Fill Confirmed' and long_full_fill_conf_signal ? 4 : na, title = 'Long Confirmed Full Fill', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and i_scr_choose == 'Full Fill Confirmed' and short_full_fill_conf_signal ? i_pos_light_color : i_scr_show_long and i_scr_choose == 'Full Fill Confirmed' and long_full_fill_conf_signal ? i_neg_light_color : na, title = 'Confirmed Full Fill Candle')
+
+// 5
+plotshape(series = i_scr_show_short and i_scr_choose == 'Reversal' and short_reversal_signal ? 3 : na, title = 'Long Reversal', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+plotshape(series = i_scr_show_long and i_scr_choose == 'Reversal' and long_reversal_signal ? 3 : na, title = 'Short Reversal', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and i_scr_choose == 'Reversal' and short_reversal_signal ? i_pos_light_color : i_scr_show_long and i_scr_choose == 'Reversal' and long_reversal_signal ? i_neg_light_color : na, title = 'Reversal Candle')
+
+//___________________________ Continuous Signals End
+
+//___________________________ Signals End
+
+//___________________________ Data Table Start
 
 // To String
-day_pchg_str = str.tostring(cum_pchg,"#.##") + ' %'
-volume_pchg_str = str.tostring(cum_vol_pchg,"#.##") + ' %'
-day_volume_str = str.tostring(current_cum_vol/100000,"#.##") + ' L'
-prev_day_volume_str = str.tostring(prev_cum_vol/100000,"#.##") + ' L'
+day_pchg_str = str.tostring(cum_pchg, '#.##') + ' %'
+volume_pchg_str = str.tostring(cum_vol_pchg, '#.##') + ' %'
+day_volume_str = str.tostring(current_cum_vol / 100000, '#.##') + ' L'
+prev_day_volume_str = str.tostring(prev_cum_vol / 100000, '#.##') + ' L'
 
 // Color
 bgcolor_1 = i_neu_dark_color
@@ -474,41 +716,43 @@ vol_pchg_col = cum_vol_pchg > 0 ? i_pos_color : i_neg_color
 prev_vol_pchg_col = prev_cum_vol < current_cum_vol ? i_neg_color : i_pos_color
 
 // Plot Table
-var table tbl_data = table.new(position=i_tbl_data_pos, columns=2, rows=4, border_width=1, force_overlay=true)
+var table tbl_data = table.new(position = i_tbl_data_pos, columns = 2, rows = 4, border_width = 1, force_overlay = true)
 
 if barstate.islast and i_tbl_data_show
-    table.cell(table_id=tbl_data, column=0, row=0, text="%Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
-    table.cell(table_id=tbl_data, column=1, row=0, text=day_pchg_str, text_color=pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 0, row = 0, text = '%Chg', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 0, text = day_pchg_str, text_color = pchg_col, text_halign = text.align_right, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
 
-    table.cell(table_id=tbl_data, column=0, row=1, text="Vol %Chg", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
-    table.cell(table_id=tbl_data, column=1, row=1, text=volume_pchg_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 0, row = 1, text = 'Vol %Chg', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 1, text = volume_pchg_str, text_color = vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
 
-    table.cell(table_id=tbl_data, column=0, row=2, text="Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
-    table.cell(table_id=tbl_data, column=1, row=2, text=day_volume_str, text_color=vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_1, text_size=i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 0, row = 2, text = 'Vol', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 2, text = day_volume_str, text_color = vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
 
-    table.cell(table_id=tbl_data, column=0, row=3, text="PD Vol", text_color=i_neu_color, text_halign=text.align_left, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
-    table.cell(table_id=tbl_data, column=1, row=3, text=prev_day_volume_str, text_color=prev_vol_pchg_col, text_halign=text.align_right, bgcolor=bgcolor_2, text_size=i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 0, row = 3, text = 'PD Vol', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 3, text = prev_day_volume_str, text_color = prev_vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
 
-//_____________________________ Data Table End
+//___________________________ Data Table End
 
-//_____________________________ Get Symbols for Screener Start
+//___________________________ Get Symbols for Screener Start
 
 // Acknowledgement & Reference
 // Trader: 'allanster'
 // Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
 // Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
 
-feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
-    loop  = back                                          // declare string variable to hold content list
-    getT  = string(na)                                    // declare string variable to hold tickerid
-    if str.length(loop) == 0                              // if list is empty
-        getT := string(na)                                // assign na to tickerid variable
-        loop := string(na)                                // assign na to list of ticker Ids variable
-    else                                                  // else extract first tickerid
-        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
-        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
-        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
-    [getT, loop]                                          // return tickerid in first position & truncated list
+feed(back) => // extract tickerid and decrement list of ticker IDs
+    loop = back // declare string variable to hold content list
+    getT = string(na) // declare string variable to hold tickerid
+    if str.length(loop) == 0 // if list is empty
+        getT := string(na) // assign na to tickerid variable
+        loop := string(na) // assign na to list of ticker Ids variable
+        loop
+    else // else extract first tickerid
+        getP = nz(str.pos(loop, ','), str.length(loop)) // get position of first comma or last character
+        getT := str.substring(loop, 0, getP) // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '') // clear tickerid + delimiter character from list
+        loop
+    [getT, loop] // return tickerid in first position & truncated list
 
 [tid_01, out_01] = feed(i_symbols), [tid_02, out_02] = feed(out_01), [tid_03, out_03] = feed(out_02), [tid_04, out_04] = feed(out_03),
 [tid_05, out_05] = feed(out_04), [tid_06, out_06] = feed(out_05), [tid_07, out_07] = feed(out_06), [tid_08, out_08] = feed(out_07),
@@ -521,9 +765,9 @@ feed(back) =>                                             // extract tickerid an
 [tid_33, out_33] = feed(out_32), [tid_34, out_34] = feed(out_33), [tid_35, out_35] = feed(out_34), [tid_36, out_36] = feed(out_35),
 [tid_37, out_37] = feed(out_36), [tid_38, out_38] = feed(out_37), [tid_39, out_39] = feed(out_38), [tid_40, out_40] = feed(out_39)
 
-//_____________________________ Get Symbols for Screener End
+//___________________________ Get Symbols for Screener End
 
-//_____________________________ Screener Start
+//___________________________ Screener Start
 
 // Acknowledgement & Reference
 // Trader: 'MUQWISHI'
@@ -531,68 +775,87 @@ feed(back) =>                                             // extract tickerid an
 // Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
 
 // Scanner Conditions
-short_cond = short_ret_trigger
-long_cond = long_ret_trigger 
+short_cond = 
+ i_scr_choose == 'FVG %' ? short_cont_1 : 
+ i_scr_choose == 'First Touch' ? short_first_touch_signal : 
+ i_scr_choose == 'First Touch Confirmed' ? short_first_touch_conf_signal : 
+ i_scr_choose == 'Full Fill' ? short_full_fill_signal : 
+ i_scr_choose == 'Full Fill Confirmed' ? short_full_fill_conf_signal : 
+ short_reversal_signal
+
+long_cond = 
+ i_scr_choose == 'FVG %' ? long_cont_1 : 
+ i_scr_choose == 'First Touch' ? long_first_touch_signal : 
+ i_scr_choose == 'First Touch Confirmed' ? long_first_touch_conf_signal : 
+ i_scr_choose == 'Full Fill' ? long_full_fill_signal : 
+ i_scr_choose == 'Full Fill Confirmed' ? long_full_fill_conf_signal : 
+ long_reversal_signal
 
 // Function for Screener Indicator Calculation
 indicator_calculation() =>
     // Initialize variables
-    price = float(na)
+    gap_percent = float(na)
+    //price = float(na)
     _time = int(na)
     _cum_pchg = float(na)
     _cum_vol_pchg = float(na)
-    signal = int(na) 
+    signal = int(na)
 
     if barstate.isconfirmed
         // Check for Short Momentum Candle and conditions (Modify here to customize indicators)
         if i_scr_show_long and long_cond
+            gap_percent := FVGUpPercent
             signal := 1
+            signal
 
         // Check for Long Momentum Candle and conditions (Modify here to customize indicators)
         else if i_scr_show_short and short_cond
+            gap_percent := FVGDownPercent
             signal := -1
+            signal
 
         // Update price and time if signal is not null
         if not na(signal)
-            price := math.round_to_mintick(close)
+            //price := math.round_to_mintick(close)
             _time := time
             _cum_pchg := cum_pchg
             _cum_vol_pchg := cum_vol_pchg
+            _cum_vol_pchg
 
-    [_time, price, _cum_pchg, _cum_vol_pchg, signal]
+    [_time, gap_percent, _cum_pchg, _cum_vol_pchg, signal]
 
 // Function to format time
 format_time(x) =>
     timezone = syminfo.timezone
-    timeframe.isintraday ? str.format_time(x, "HH:mm  dd-MM-yyyy", timezone) : str.format_time(x, "dd-MM-yyyy", timezone)
+    timeframe.isintraday ? str.format_time(x, 'HH:mm  dd-MM-yyyy', timezone) : str.format_time(x, 'dd-MM-yyyy', timezone)
 
 // Function to extract symbol name
-symbol(s) => 
-    array.get(str.split(s, ":"), 1)
+symbol(s) =>
+    array.get(str.split(s, ':'), 1)
 
 // Matrix setup
 var matrix = matrix.new<string>(0, 6, na)
 
 // Function to add rows to the matrix
-mtxFun(symbol, _time, price, _cum_pchg, _cum_vol_pchg, signal) =>
-    matrix.add_row(matrix, 0, array.from(symbol, _time, price, _cum_pchg, _cum_vol_pchg, signal))
+mtxFun(symbol, _time, gap_percent, _cum_pchg, _cum_vol_pchg, signal) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, gap_percent, _cum_pchg, _cum_vol_pchg, signal))
 
 // Screener function to collect data
 screener(s) =>
     sym = ticker.modify(s, syminfo.session)
-    [_time, price, _cum_pchg, _cum_vol_pchg, signal] = request.security(sym, timeframe.period, indicator_calculation())
+    [_time, gap_percent, _cum_pchg, _cum_vol_pchg, signal] = request.security(sym, timeframe.period, indicator_calculation())
 
     // Check if the signal is not na and the time matches
     if not na(signal) and _time == time
         symbolName = symbol(s)
         formattedTime = format_time(_time)
-        strPrice = str.tostring(price)
+        str_gap_percent = str.tostring(gap_percent, '#.##')
         str_cum_pchg = str.tostring(_cum_pchg, '#.##')
         str_cum_vol_pchg = str.tostring(_cum_vol_pchg, '#.##')
         strSignal = str.tostring(signal)
-        
+
         // Add data to the matrix
-        mtxFun(symbolName, formattedTime, strPrice, str_cum_pchg, str_cum_vol_pchg, strSignal)
+        mtxFun(symbolName, formattedTime, str_gap_percent, str_cum_pchg, str_cum_vol_pchg, strSignal)
 
 // Call Screener function for multiple symbols
 screener(tid_01), screener(tid_02), screener(tid_03), screener(tid_04), screener(tid_05), screener(tid_06), screener(tid_07),
@@ -605,18 +868,18 @@ screener(tid_36), screener(tid_37), screener(tid_38), screener(tid_39), screener
 // Trim excess rows in the matrix
 if matrix.rows(matrix) > i_scr_tbl_disp_rows
     while matrix.rows(matrix) > i_scr_tbl_disp_rows
-        matrix.remove_row(matrix, matrix.rows(matrix)-1)
+        matrix.remove_row(matrix, matrix.rows(matrix) - 1)
 
 // Plot Table
 // Create table with specified properties
-var table scr_tbl = table.new(position=i_scr_tbl_position, columns=5, rows=102, border_width=1, force_overlay=true)
+var table scr_tbl = table.new(position = i_scr_tbl_position, columns = 5, rows = 102, border_width = 1, force_overlay = true)
 
 // Function to populate cells in the table
-scr_cell_title(col, row, txt) => 
-    table.cell(scr_tbl, col, row, text = txt, text_color = i_neu_color, text_halign=text.align_center, bgcolor=i_neu_dark_color, text_size=i_scr_tbl_text_size)
+scr_cell_title(col, row, txt) =>
+    table.cell(scr_tbl, col, row, text = txt, text_color = i_neu_color, text_halign = text.align_center, bgcolor = i_neu_dark_color, text_size = i_scr_tbl_text_size)
 
-scr_cell(col, row, txt, _text_color, _bgcolor) => 
-    table.cell(scr_tbl, col, row, text = txt, text_color = _text_color, text_halign=text.align_left, bgcolor=_bgcolor, text_size=i_scr_tbl_text_size)
+scr_cell(col, row, txt, _text_color, _bgcolor) =>
+    table.cell(scr_tbl, col, row, text = txt, text_color = _text_color, text_halign = text.align_left, bgcolor = _bgcolor, text_size = i_scr_tbl_text_size)
 
 // Check if it's the last bar
 if barstate.islast and i_scr_show_table
@@ -624,26 +887,22 @@ if barstate.islast and i_scr_show_table
     table.clear(scr_tbl, 0, 0, 2, 101)
 
     scr_cell_title(0, 0, i_scr_choose)
-    table.merge_cells(table_id=scr_tbl, start_column=0, start_row=0, end_column=4, end_row=0)
-    scr_cell_title(0, 1, "Symbol")
-    scr_cell_title(1, 1, "Time")
-    scr_cell_title(2, 1, "Price")
-    scr_cell_title(3, 1, "%Chg")
-    scr_cell_title(4, 1, "V %Chg")
+    table.merge_cells(table_id = scr_tbl, start_column = 0, start_row = 0, end_column = 4, end_row = 0)
+    scr_cell_title(0, 1, 'Symbol')
+    scr_cell_title(1, 1, 'Time')
+    scr_cell_title(2, 1, 'FVG %')
+    scr_cell_title(3, 1, '%Chg')
+    scr_cell_title(4, 1, 'V %Chg')
 
     j = 4
     // Populate table with matrix data
     if matrix.rows(matrix) > 0
-        for i = 0 to matrix.rows(matrix) - 1
-            // Determine color based on the signal
+        for i = 0 to matrix.rows(matrix) - 1 by 1
+        // Determine color based on the signal
 
-            _textcolor = 
-             matrix.get(matrix, i, 5) ==  "1" ? i_pos_color : 
-             matrix.get(matrix, i, 5) == "-1" ? i_neg_color : i_neu_color
+            _textcolor = matrix.get(matrix, i, 5) == '1' ? i_pos_color : matrix.get(matrix, i, 5) == '-1' ? i_neg_color : i_neu_color
 
-            _bg_color = 
-             matrix.get(matrix, i, 5) ==  "1" ? i_pos_dark_color :
-             matrix.get(matrix, i, 5) == "-1" ? i_neg_dark_color : i_neu_color
+            _bg_color = matrix.get(matrix, i, 5) == '1' ? i_pos_dark_color : matrix.get(matrix, i, 5) == '-1' ? i_neg_dark_color : i_neu_color
 
             // Populate cells in the table
             scr_cell(0, j, matrix.get(matrix, i, 0), _textcolor, _bg_color)
@@ -652,22 +911,9 @@ if barstate.islast and i_scr_show_table
             scr_cell(3, j, matrix.get(matrix, i, 3), _textcolor, _bg_color)
             scr_cell(4, j, matrix.get(matrix, i, 4), _textcolor, _bg_color)
 
-            j += 1
+            j := j + 1
+            j
 
-//_____________________________ Screener End
+//___________________________ Screener End
 
-//_____________________________ Code End
-
-// Readme First:
-
-// ICT Fair Value Gap (FVG) Scanner
-
-// Logic
-//   - A fully filled Fair Value Gap (FVG) is more likely to bounce back with strong momentum.
-//   - If the FVG is larger in height, the probability of a bounce back increases.
-//   - In most live trading sessions by ICT, a large FVG is often filled slowly or with high resistance.
-//   - This is similar to filling a Liquidity Void.
-
-// Notes
-//   - Use a higher timeframe, like 1 hour, for stock selection.
-//   - The Scanner will generate wrong signals also. 
+//___________________________ Code End
