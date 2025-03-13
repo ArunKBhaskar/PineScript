@@ -1,0 +1,220 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=6
+indicator(title = 'ICT Liquidity Void Fill', shorttitle = 'ICT LV Fill', overlay = true, max_lines_count = 500)
+
+//_____________________________ Menu Start
+
+string g_lv = '███████████████ Liquidity Void ███████████████'
+
+string tt_lv_fib = 
+ "• '0' → Bottom of a bullish candle, top of a bearish candle." + 
+ "\n• '1' → Top of a bullish candle, bottom of a bearish candle." + 
+ "\n• '0.5' → 50% level of the candle." + 
+ "\n• Other Fibonacci/OTE values like 0.62, 0.705, 0.79, etc., are usable." + 
+ "\n• Range: Min = 0, Max = 1."
+
+bool i_scr_show_long = input.bool(defval = true, title = 'Long Signals', inline = 'tb_2', group = g_lv)
+bool i_scr_show_short = input.bool(defval = true, title = 'Short Signals', inline = 'tb_2', group = g_lv)
+float i_fib_val = input.float(defval = 0.5, title = 'Fib Value', minval = 0, maxval = 1, step = 0.1, tooltip = tt_lv_fib, group = g_lv)
+string i_fvg_ln_style = input.string(defval = line.style_solid, title = 'Line Style', options = [line.style_solid, line.style_dashed, line.style_dotted], group = g_lv)
+
+string g_af = '██████████████ Additional Fiters ██████████████'
+
+string tt_atr = 
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• ATR filters out longer or more volatile candles."+
+ "\n• Higher multiplier value filters longer/volatile 1st candle."
+string tt_bf =
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• If the input is '80', the candle's body covers over 80% of its total length."
+string tt_bs =
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• If the input is '2', the candle is twice the size of the previous candle."
+string tt_tf =
+ "• Applicable only to the retracement candle." + 
+ "\n• Filter out a signals between the given Time."
+string tt_df =
+ "• Applicable only to the retracement candle." +
+  "\n• Filter out a signals on the given Date." +
+  "\n• Turn this on and enter yesterday's date to generate signals for yesterday."
+
+bool i_atr_filter = input.bool(defval = true, title = 'Apply ATR Filter', tooltip = tt_atr, group = g_af)
+int i_atr_length = input.int(defval = 14, minval = 1, title = 'ATR Length', group = g_af)
+float i_atr_multi = input.float(defval = 1, title = 'ATR Multiplier', minval = 1, group = g_af)
+
+bool i_body_filter = input.bool(defval = true, title = 'Apply Body % Filter', tooltip = tt_bf, group = g_af)
+float i_body_percent = input.float(defval = 80, title = 'Body % Above', minval = 0, maxval = 100, group = g_af) / 100
+
+bool i_body_size_filter = input.bool(defval = false, title = 'Apply Body Size Filter', tooltip = tt_bs, group = g_af)
+int i_body_size_multiplier = input.int(defval = 2, title = 'Body Size Multiplier (x)', minval = 0, group = g_af)
+
+bool i_time_filter = input.bool(defval = false, title = 'Apply Time Filter', tooltip = tt_tf, group = g_af)
+int i_hour_1 = input.int(defval = 9, minval = 0, title = 'Time From', inline = 't_1', group = g_af)
+int i_minute_1 = input.int(defval = 15, minval = 0, title = ':', inline = 't_1', group = g_af)
+int i_hour_2 = input.int(defval = 10, minval = 0, title = 'Time To ', inline = 't_2', group = g_af)
+int i_minute_2 = input.int(defval = 15, minval = 0, title = ':', inline = 't_2', group = g_af)
+
+bool i_date_filter = input.bool(defval = false, title = 'Apply Date Filter', tooltip = tt_df, group = g_af)
+int i_day = input.int(defval = 13, minval = 1, maxval = 31, title = 'Day', group = g_af)
+int i_month = input.int(defval = 03, minval = 1, maxval = 12, title = 'Month', group = g_af)
+int i_year = input.int(defval = 2025, minval = 0, title = 'Year', group = g_af)
+
+string g_ch = '███████████████ Chart Settings ███████████████'
+
+color i_pos_color = input.color(defval = #089981, title = 'Positive Mid', group = g_ch)
+color i_pos_light_color = input.color(defval = #ACE5DC, title = 'Positive Light', group = g_ch)
+color i_neg_light_color = input.color(defval = #FCCBCD, title = 'Negative Light', group = g_ch)
+color i_neg_color = input.color(defval = #F23645, title = 'Negative Mid', group = g_ch)
+color i_neu_color = input.color(defval = #9C9C9C, title = 'Neutral Light', group = g_ch)
+color i_neu_dark_color = input.color(defval = #0F0F0F, title = 'Neutral Dark', group = g_ch)
+
+//_____________________________ Menu End
+
+//_____________________________ Additional Filters Start
+
+// ATR Filter
+bool atr_filter = true
+if i_atr_filter
+    atr_filter := high - low > ta.atr(i_atr_length) * i_atr_multi
+
+// Body Percent Filter
+bool body_filter = true
+if i_body_filter
+    body_filter := math.abs(close - open) / (high - low) >= i_body_percent
+
+// Body Size Filter
+bool body_size_filter = true
+if i_body_size_filter
+    body_size_filter := math.abs(close - open) / (high - low) >= i_body_percent and high - low >= (high[1] - low[1]) * i_body_size_multiplier
+
+// Time Filter
+bool time_filter = true
+if i_time_filter
+    time_filter := (hour > i_hour_1 or hour == i_hour_1 and minute >= i_minute_1) and (hour < i_hour_2 or hour == i_hour_2 and minute < i_minute_2)
+
+// Date Filter
+bool date_filter = true
+if i_date_filter
+    date_filter := year == i_year and month == i_month and dayofmonth == i_day
+
+//_____________________________ Additional Filters End
+
+//_____________________________ Fibonacci Start
+
+// Fibonacci Function
+fibonacci(bool calc_from_high, float high_value, float low_value, float fib_value) =>
+    if calc_from_high
+        low_value + (high_value - low_value) * fib_value
+    else
+        high_value - (high_value - low_value) * fib_value
+
+//_____________________________ Fibonacci End
+
+//_____________________________ Signals Start
+
+// Short Condition 1
+short_cont_1 = 
+ open > close and 
+ atr_filter and 
+ body_filter and
+ body_size_filter
+
+var short_cont_1_high = float(na)
+var short_cont_1_low = float(na)
+var short_cont_1_bi = int(na)
+if short_cont_1
+    short_cont_1_high := high
+    short_cont_1_low := low
+    short_cont_1_bi := bar_index
+
+float bear_fib_val = fibonacci(false, short_cont_1_high, short_cont_1_low, i_fib_val)
+
+// Short Condition 2
+short_cont_2 = 
+ ta.crossover(high, bear_fib_val) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Short Retracement Signal
+var short_curr_state = 0
+short_prev_state = nz(short_curr_state[1])
+short_curr_state := short_prev_state == 2 ? 0 : short_prev_state
+if short_cont_1 and short_curr_state == 0
+    short_curr_state := 1
+if not short_cont_1 and short_cont_2 and short_curr_state == 1
+    short_curr_state := 2
+
+short_ret_signal = short_curr_state == 2 ? true : false
+
+
+// Long Condition 1
+long_cont_1 = 
+ open < close and 
+ atr_filter and 
+ body_filter and
+ body_size_filter
+
+var long_cont_1_high = float(na)
+var long_cont_1_low = float(na)
+var long_cont_1_bi = int(na)
+if long_cont_1
+    long_cont_1_high := high
+    long_cont_1_low := low
+    long_cont_1_bi := bar_index
+
+float bull_fib_val = fibonacci(true, long_cont_1_high, long_cont_1_low, i_fib_val)
+
+// Long Condition 2
+long_cont_2 = 
+ ta.crossunder(low, bull_fib_val) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Long  Retracement
+var long_curr_state = 0
+long_prev_state = nz(long_curr_state[1])
+long_curr_state := long_prev_state == 2 ? 0 : long_prev_state
+if long_cont_1 and long_curr_state == 0
+    long_curr_state := 1
+if not long_cont_1 and long_cont_2 and long_curr_state == 1
+    long_curr_state := 2
+
+long_ret_signal = long_curr_state == 2 ? true : false
+
+//_____________________________ Signals End
+
+//_____________________________ Plot Start
+
+// Plot
+plotshape(series = i_scr_show_short and short_ret_signal ? 3 : na, title = 'Short Signal', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotshape(series = i_scr_show_long and long_ret_signal ? 3 : na, title = 'Long Signal', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and short_cont_1 ? i_neg_light_color : i_scr_show_long and long_cont_1 ? i_pos_light_color : na, title = '80% Candle')
+
+// Line
+var line_array = array.new_line()
+
+if i_scr_show_short and short_ret_signal
+    array.push(line_array, line.new(x1 = short_cont_1_bi, y1 = bear_fib_val, x2 = bar_index, y2 = bear_fib_val, color = i_neg_color, style = i_fvg_ln_style))
+
+if i_scr_show_long and long_ret_signal
+    array.push(line_array, line.new(x1 = long_cont_1_bi, y1 = bull_fib_val, x2 = bar_index, y2 = bull_fib_val, color = i_pos_color, style = i_fvg_ln_style))
+
+//_____________________________ Plot End
+
+//_____________________________ Code End
+
+// Readme First:
+
+// ICT Liquidity Void Fill Scanner
+
+// Logic
+//   - This identifies a momentum candle, an 80% body candle with high volatility, or a displacement.
+//   - A signal is generated when the price retraces to the candle body, void, or FVG, based on the Fibonacci value.
+
+// Notes
+//   - Use a higher timeframe, like 4 hour or 1 hour, for stock selection.
+//   - The Scanner will generate wrong signals also.

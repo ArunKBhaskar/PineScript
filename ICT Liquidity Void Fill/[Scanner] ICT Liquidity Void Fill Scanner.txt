@@ -1,0 +1,474 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=6
+indicator(title = 'ICT Liquidity Void Fill Scanner', shorttitle = 'ICT LV Fill Scan', overlay = true, max_lines_count = 500)
+
+//_____________________________ Menu Start
+
+string g_scrtb = '█████████████████ Scanner █████████████████'
+
+string tt_is = 
+ "• Reads only up to first 40 symbols." +
+ "\n• Total characters cannot exceed 4096." +
+ "\n• Eg: EXCHANGE:SYMBOL_A,EXCHANGE:SYMBOL_B"
+
+string i_symbols = input.text_area(
+ defval="NSE:ABCAPITAL,NSE:ABFRL,NSE:ASHOKLEY,NSE:BANDHANBNK,NSE:BANKBARODA,NSE:BANKINDIA,NSE:BEL,NSE:BHEL,NSE:BPCL,NSE:CANBK,NSE:CESC,NSE:CUB,NSE:FEDERALBNK,NSE:GAIL,NSE:GMRAIRPORT,NSE:HFCL,NSE:HINDCOPPER,NSE:HUDCO,NSE:IDFCFIRSTB,NSE:IEX,NSE:IGL,NSE:IOC,NSE:IRFC,NSE:JIOFIN,NSE:LTF,NSE:MANAPPURAM,NSE:MOTHERSON,NSE:NATIONALUM,NSE:NBCC,NSE:NCC,NSE:NHPC,NSE:NMDC,NSE:NYKAA,NSE:ONGC,NSE:PNB,NSE:SAIL,NSE:SJVN,NSE:TATASTEEL,NSE:UNIONBANK,NSE:RBLBANK", 
+ title="Paste Symbols", tooltip=tt_is, group=g_scrtb)
+
+bool i_scr_show_table = input.bool(defval = true, title = 'Display Table', group = g_scrtb)
+bool i_scr_show_long = input.bool(defval = true, title = 'Long Signals', inline = 'tb_2', group = g_scrtb)
+bool i_scr_show_short = input.bool(defval = true, title = 'Short Signals', inline = 'tb_2', group = g_scrtb)
+
+int i_scr_tbl_disp_rows = input.int(defval = 12, title = 'Display Rows', minval = 0, maxval = 100, group = g_scrtb)
+string i_scr_tbl_position = input.string(defval = position.bottom_left, title = 'Table Position', options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = g_scrtb)
+string i_scr_tbl_text_size = input.string(defval = size.small, title = 'Table Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = g_scrtb)
+
+string g_lv = '███████████████ Liquidity Void ███████████████'
+
+string tt_lv_fib = 
+ "• '0' → Bottom of a bullish candle, top of a bearish candle." + 
+ "\n• '1' → Top of a bullish candle, bottom of a bearish candle." + 
+ "\n• '0.5' → 50% level of the candle." + 
+ "\n• Other Fibonacci/OTE values like 0.62, 0.705, 0.79, etc., are usable." + 
+ "\n• Range: Min = 0, Max = 1."
+
+float i_fib_val = input.float(defval = 0.5, title = 'Fib Value', minval = 0, maxval = 1, step = 0.1, tooltip = tt_lv_fib, group = g_lv)
+string i_fvg_ln_style = input.string(defval = line.style_solid, title = 'Line Style', options = [line.style_solid, line.style_dashed, line.style_dotted], group = g_lv)
+
+string g_af = '██████████████ Additional Fiters ██████████████'
+
+string tt_atr = 
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• ATR filters out longer or more volatile candles."+
+ "\n• Higher multiplier value filters longer/volatile 1st candle."
+string tt_bf =
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• If the input is '80', the candle's body covers over 80% of its total length."
+string tt_bs =
+ "• Applicable only to 1st displacement, 80%, or momentum candles." + 
+ "\n• If the input is '2', the candle is twice the size of the previous candle."
+string tt_tf =
+ "• Applicable only to the retracement candle." + 
+ "\n• Filter out a signals between the given Time."
+string tt_df =
+ "• Applicable only to the retracement candle." +
+  "\n• Filter out a signals on the given Date." +
+  "\n• Turn this on and enter yesterday's date to generate signals for yesterday."
+
+bool i_atr_filter = input.bool(defval = true, title = 'Apply ATR Filter', tooltip = tt_atr, group = g_af)
+int i_atr_length = input.int(defval = 14, minval = 1, title = 'ATR Length', group = g_af)
+float i_atr_multi = input.float(defval = 1, title = 'ATR Multiplier', minval = 1, group = g_af)
+
+bool i_body_filter = input.bool(defval = true, title = 'Apply Body % Filter', tooltip = tt_bf, group = g_af)
+float i_body_percent = input.float(defval = 80, title = 'Body % Above', minval = 0, maxval = 100, group = g_af) / 100
+
+bool i_body_size_filter = input.bool(defval = false, title = 'Apply Body Size Filter', tooltip = tt_bs, group = g_af)
+int i_body_size_multiplier = input.int(defval = 2, title = 'Body Size Multiplier (x)', minval = 0, group = g_af)
+
+bool i_time_filter = input.bool(defval = false, title = 'Apply Time Filter', tooltip = tt_tf, group = g_af)
+int i_hour_1 = input.int(defval = 9, minval = 0, title = 'Time From', inline = 't_1', group = g_af)
+int i_minute_1 = input.int(defval = 15, minval = 0, title = ':', inline = 't_1', group = g_af)
+int i_hour_2 = input.int(defval = 10, minval = 0, title = 'Time To ', inline = 't_2', group = g_af)
+int i_minute_2 = input.int(defval = 15, minval = 0, title = ':', inline = 't_2', group = g_af)
+
+bool i_date_filter = input.bool(defval = false, title = 'Apply Date Filter', tooltip = tt_df, group = g_af)
+int i_day = input.int(defval = 13, minval = 1, maxval = 31, title = 'Day', group = g_af)
+int i_month = input.int(defval = 03, minval = 1, maxval = 12, title = 'Month', group = g_af)
+int i_year = input.int(defval = 2025, minval = 0, title = 'Year', group = g_af)
+
+string g_dtb = '████████████████ Data Table ████████████████'
+
+bool i_tbl_data_show = input.bool(defval = true, title = 'Display Table', group = g_dtb)
+string i_tbl_data_pos = input.string(defval = position.bottom_right, title = 'Position', options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = g_dtb)
+string i_tbl_data_txt_size = input.string(defval = size.normal, title = 'Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = g_dtb)
+
+string g_ch = '███████████████ Chart Settings ███████████████'
+
+color i_pos_color = input.color(defval = #089981, title = 'Positive Mid', group = g_ch)
+color i_pos_light_color = input.color(defval = #ACE5DC, title = 'Positive Light', group = g_ch)
+color i_neg_light_color = input.color(defval = #FCCBCD, title = 'Negative Light', group = g_ch)
+color i_neg_color = input.color(defval = #F23645, title = 'Negative Mid', group = g_ch)
+color i_neu_color = input.color(defval = #9C9C9C, title = 'Neutral Light', group = g_ch)
+color i_neu_dark_color = input.color(defval = #0F0F0F, title = 'Neutral Dark', group = g_ch)
+
+//_____________________________ Menu End
+
+//_____________________________ Cumulative Percentage Change Start
+
+// Function to calculate Daily Cumulative Percentage Change of Close Price
+cum_pchg() =>
+    var float _cum_pct_change = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _daily_pct_change = na(close[1]) ? 0 : (close - close[1]) / close[1] * 100
+    _cum_pct_change := bool(_is_new_day) ? _daily_pct_change : na(_cum_pct_change) ? _daily_pct_change : _cum_pct_change + _daily_pct_change
+    _cum_pct_change
+
+// Calculate current cumulative percentage change
+cum_pchg = cum_pchg()
+
+//_____________________________ Cumulative Percentage Change End
+
+//_____________________________ Cumulative Volume Percentage Change Start
+
+// Function to calculate Daily Cumulative Volume
+cum_vol() =>
+    var float _cum_vol = na
+    _is_new_day = ta.change(time('D')) != 0 ? 1 : 0
+    _cum_vol := bool(_is_new_day) ? volume : na(_cum_vol) ? volume : _cum_vol + volume
+    _cum_vol
+
+// Calculate current and previous day cumulative volumes
+var float curr_cum_vol = na
+var float prev_cum_vol = na
+
+if ta.change(time('D')) != 0
+    prev_cum_vol := curr_cum_vol
+    curr_cum_vol := volume
+    curr_cum_vol
+else
+    curr_cum_vol := curr_cum_vol + volume
+    curr_cum_vol
+
+// Calculate Cumulative Volume Percentage Change
+cum_vol_pchg = (curr_cum_vol - nz(prev_cum_vol, curr_cum_vol)) / nz(prev_cum_vol, curr_cum_vol) * 100
+
+//_____________________________ Cumulative Volume Percentage Change End
+
+//_____________________________ Additional Filters Start
+
+// ATR Filter
+bool atr_filter = true
+if i_atr_filter
+    atr_filter := high - low > ta.atr(i_atr_length) * i_atr_multi
+
+// Body Percent Filter
+bool body_filter = true
+if i_body_filter
+    body_filter := math.abs(close - open) / (high - low) >= i_body_percent
+
+// Body Size Filter
+bool body_size_filter = true
+if i_body_size_filter
+    body_size_filter := math.abs(close - open) / (high - low) >= i_body_percent and high - low >= (high[1] - low[1]) * i_body_size_multiplier
+
+// Time Filter
+bool time_filter = true
+if i_time_filter
+    time_filter := (hour > i_hour_1 or hour == i_hour_1 and minute >= i_minute_1) and (hour < i_hour_2 or hour == i_hour_2 and minute < i_minute_2)
+
+// Date Filter
+bool date_filter = true
+if i_date_filter
+    date_filter := year == i_year and month == i_month and dayofmonth == i_day
+
+//_____________________________ Additional Filters End
+
+//_____________________________ Fibonacci Start
+
+// Fibonacci Function
+fibonacci(bool calc_from_high, float high_value, float low_value, float fib_value) =>
+    if calc_from_high
+        low_value + (high_value - low_value) * fib_value
+    else
+        high_value - (high_value - low_value) * fib_value
+
+//_____________________________ Fibonacci End
+
+//_____________________________ Signals Start
+
+// Short Condition 1
+short_cont_1 = 
+ open > close and 
+ atr_filter and 
+ body_filter and
+ body_size_filter
+
+var short_cont_1_high = float(na)
+var short_cont_1_low = float(na)
+var short_cont_1_bi = int(na)
+if short_cont_1
+    short_cont_1_high := high
+    short_cont_1_low := low
+    short_cont_1_bi := bar_index
+
+float bear_fib_val = fibonacci(false, short_cont_1_high, short_cont_1_low, i_fib_val)
+
+// Short Condition 2
+short_cont_2 = 
+ ta.crossover(high, bear_fib_val) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Short Retracement Signal
+var short_curr_state = 0
+short_prev_state = nz(short_curr_state[1])
+short_curr_state := short_prev_state == 2 ? 0 : short_prev_state
+if short_cont_1 and short_curr_state == 0
+    short_curr_state := 1
+if not short_cont_1 and short_cont_2 and short_curr_state == 1
+    short_curr_state := 2
+
+short_ret_signal = short_curr_state == 2 ? true : false
+
+// Long Condition 1
+long_cont_1 = 
+ open < close and 
+ atr_filter and 
+ body_filter and
+ body_size_filter
+
+var long_cont_1_high = float(na)
+var long_cont_1_low = float(na)
+var long_cont_1_bi = int(na)
+if long_cont_1
+    long_cont_1_high := high
+    long_cont_1_low := low
+    long_cont_1_bi := bar_index
+
+float bull_fib_val = fibonacci(true, long_cont_1_high, long_cont_1_low, i_fib_val)
+
+// Long Condition 2
+long_cont_2 = 
+ ta.crossunder(low, bull_fib_val) and 
+ time_filter and
+ date_filter and
+ barstate.isconfirmed
+
+// Long  Retracement
+var long_curr_state = 0
+long_prev_state = nz(long_curr_state[1])
+long_curr_state := long_prev_state == 2 ? 0 : long_prev_state
+if long_cont_1 and long_curr_state == 0
+    long_curr_state := 1
+if not long_cont_1 and long_cont_2 and long_curr_state == 1
+    long_curr_state := 2
+
+long_ret_signal = long_curr_state == 2 ? true : false
+
+//_____________________________ Signals End
+
+//_____________________________ Plot Start
+
+// Plot
+plotshape(series = i_scr_show_short and short_ret_signal ? 3 : na, title = 'Short Signal', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, size = size.tiny, force_overlay = true)
+plotshape(series = i_scr_show_long and long_ret_signal ? 3 : na, title = 'Long Signal', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, size = size.tiny, force_overlay = true)
+barcolor(color = i_scr_show_short and short_cont_1 ? i_neg_light_color : i_scr_show_long and long_cont_1 ? i_pos_light_color : na, title = '80% Candle')
+
+// Line
+var line_array = array.new_line()
+
+if i_scr_show_short and short_ret_signal
+    array.push(line_array, line.new(x1 = short_cont_1_bi, y1 = bear_fib_val, x2 = bar_index, y2 = bear_fib_val, color = i_neg_color, style = i_fvg_ln_style))
+
+if i_scr_show_long and long_ret_signal
+    array.push(line_array, line.new(x1 = long_cont_1_bi, y1 = bull_fib_val, x2 = bar_index, y2 = bull_fib_val, color = i_pos_color, style = i_fvg_ln_style))
+
+//_____________________________ Plot End
+
+//_____________________________ Data Table Start
+
+// To String
+day_pchg_str = str.tostring(cum_pchg, '#.##') + ' %'
+volume_pchg_str = str.tostring(cum_vol_pchg, '#.##') + ' %'
+day_volume_str = str.tostring(curr_cum_vol / 100000, '#.##') + ' L'
+prev_day_volume_str = str.tostring(prev_cum_vol / 100000, '#.##') + ' L'
+
+// Color
+bgcolor_1 = i_neu_dark_color
+bgcolor_2 = i_neu_dark_color
+
+pchg_col = cum_pchg > 0 ? i_pos_color : i_neg_color
+vol_pchg_col = cum_vol_pchg > 0 ? i_pos_color : i_neg_color
+prev_vol_pchg_col = prev_cum_vol < curr_cum_vol ? i_neg_color : i_pos_color
+
+// Plot Table
+var table tbl_data = table.new(position = i_tbl_data_pos, columns = 2, rows = 4, border_width = 1, force_overlay = true)
+
+if barstate.islast and i_tbl_data_show
+    table.cell(table_id = tbl_data, column = 0, row = 0, text = '%Chg', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 0, text = day_pchg_str, text_color = pchg_col, text_halign = text.align_right, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+
+    table.cell(table_id = tbl_data, column = 0, row = 1, text = 'Vol %Chg', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 1, text = volume_pchg_str, text_color = vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+
+    table.cell(table_id = tbl_data, column = 0, row = 2, text = 'Vol', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 2, text = day_volume_str, text_color = vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_1, text_size = i_tbl_data_txt_size)
+
+    table.cell(table_id = tbl_data, column = 0, row = 3, text = 'PD Vol', text_color = i_neu_color, text_halign = text.align_left, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+    table.cell(table_id = tbl_data, column = 1, row = 3, text = prev_day_volume_str, text_color = prev_vol_pchg_col, text_halign = text.align_right, bgcolor = bgcolor_2, text_size = i_tbl_data_txt_size)
+
+//_____________________________ Data Table End
+
+//_____________________________ Get Symbols for Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'allanster'
+// Indicator Title: 'How To Input CSV List Of Symbol Data Used For Screener'
+// Indicator Link: 'https://www.tradingview.com/script/KfqHqHUH-How-To-Input-CSV-List-Of-Symbol-Data-Used-For-Screener/'
+
+feed(back) =>                                             // extract tickerid and decrement list of ticker IDs
+    loop  = back                                          // declare string variable to hold content list
+    getT  = string(na)                                    // declare string variable to hold tickerid
+    if str.length(loop) == 0                              // if list is empty
+        getT := string(na)                                // assign na to tickerid variable
+        loop := string(na)                                // assign na to list of ticker Ids variable
+    else                                                  // else extract first tickerid
+        getP  = nz(str.pos(loop, ','), str.length(loop))  // get position of first comma or last character
+        getT := str.substring(loop, 0, getP)              // get tickerid in first position of list
+        loop := str.replace(loop, getT + ',', '')         // clear tickerid + delimiter character from list
+    [getT, loop]                                          // return tickerid in first position & truncated list
+
+[t_01, o_01] = feed(i_symbols), [t_02, o_02] = feed(o_01), [t_03, o_03] = feed(o_02), [t_04, o_04] = feed(o_03), [t_05, o_05] = feed(o_04), 
+[t_06, o_06] = feed(o_05), [t_07, o_07] = feed(o_06), [t_08, o_08] = feed(o_07), [t_09, o_09] = feed(o_08), [t_10, o_10] = feed(o_09), 
+[t_11, o_11] = feed(o_10), [t_12, o_12] = feed(o_11), [t_13, o_13] = feed(o_12), [t_14, o_14] = feed(o_13), [t_15, o_15] = feed(o_14),
+[t_16, o_16] = feed(o_15), [t_17, o_17] = feed(o_16), [t_18, o_18] = feed(o_17), [t_19, o_19] = feed(o_18), [t_20, o_20] = feed(o_19),
+[t_21, o_21] = feed(o_20), [t_22, o_22] = feed(o_21), [t_23, o_23] = feed(o_22), [t_24, o_24] = feed(o_23), [t_25, o_25] = feed(o_24), 
+[t_26, o_26] = feed(o_25), [t_27, o_27] = feed(o_26), [t_28, o_28] = feed(o_27), [t_29, o_29] = feed(o_28), [t_30, o_30] = feed(o_29), 
+[t_31, o_31] = feed(o_30), [t_32, o_32] = feed(o_31), [t_33, o_33] = feed(o_32), [t_34, o_34] = feed(o_33), [t_35, o_35] = feed(o_34), 
+[t_36, o_36] = feed(o_35), [t_37, o_37] = feed(o_36), [t_38, o_38] = feed(o_37), [t_39, o_39] = feed(o_38), [t_40, o_40] = feed(o_39)
+
+//_____________________________ Get Symbols for Screener End
+
+//_____________________________ Screener Start
+
+// Acknowledgement & Reference
+// Trader: 'MUQWISHI'
+// Indicator Title: 'Candlestick Patterns Screener [By MUQWISHI]'
+// Indicator Link: 'https://www.tradingview.com/script/xiWQuGOq-Candlestick-Patterns-Screener-By-MUQWISHI/'
+
+// Scanner Conditions
+short_cond = short_ret_signal
+long_cond = long_ret_signal
+
+// Function for Screener Indicator Calculation
+indicator_calculation() =>
+    // Initialize variables
+    price = float(na)
+    _time = int(na)
+    _cum_pchg = float(na)
+    _cum_vol_pchg = float(na)
+    signal = int(na)
+
+    if barstate.isconfirmed
+        // Check for Short Momentum Candle and conditions (Modify here to customize indicators)
+        if i_scr_show_long and long_cond
+            signal := 1
+
+        // Check for Long Momentum Candle and conditions (Modify here to customize indicators)
+        else if i_scr_show_short and short_cond
+            signal := -1
+
+        // Update price and time if signal is not null
+        if not na(signal)
+            price := math.round_to_mintick(close)
+            _time := time
+            _cum_pchg := cum_pchg
+            _cum_vol_pchg := cum_vol_pchg
+
+    [_time, price, _cum_pchg, _cum_vol_pchg, signal]
+
+// Function to format time
+format_time(x) =>
+    timezone = syminfo.timezone
+    timeframe.isintraday ? str.format_time(x, 'HH:mm  dd-MM-yyyy', timezone) : str.format_time(x, 'dd-MM-yyyy', timezone)
+
+// Function to extract symbol name
+symbol(s) =>
+    array.get(str.split(s, ':'), 1)
+
+// Matrix setup
+var matrix = matrix.new<string>(0, 6, na)
+
+// Function to add rows to the matrix
+mtxFun(symbol, _time, price, _cum_pchg, _cum_vol_pchg, signal) =>
+    matrix.add_row(matrix, 0, array.from(symbol, _time, price, _cum_pchg, _cum_vol_pchg, signal))
+
+// Screener function to collect data
+scan(s) =>
+    sym = ticker.modify(s, syminfo.session)
+    [_time, price, _cum_pchg, _cum_vol_pchg, signal] = request.security(sym, timeframe.period, indicator_calculation())
+
+    // Check if the signal is not na and the time matches
+    if not na(signal) and _time == time
+        symbolName = symbol(s)
+        formattedTime = format_time(_time)
+        strPrice = str.tostring(price)
+        str_cum_pchg = str.tostring(_cum_pchg, '#.##')
+        str_cum_vol_pchg = str.tostring(_cum_vol_pchg, '#.##')
+        strSignal = str.tostring(signal)
+
+        // Add data to the matrix
+        mtxFun(symbolName, formattedTime, strPrice, str_cum_pchg, str_cum_vol_pchg, strSignal)
+
+// Call Screener function for multiple symbols
+scan(t_01), scan(t_02), scan(t_03), scan(t_04), scan(t_05), scan(t_06), scan(t_07), scan(t_08), scan(t_09), scan(t_10), scan(t_11), scan(t_12), 
+scan(t_13), scan(t_14), scan(t_15), scan(t_16), scan(t_17), scan(t_18), scan(t_19), scan(t_20), scan(t_21), scan(t_22), scan(t_23), scan(t_24), 
+scan(t_25), scan(t_26), scan(t_27), scan(t_28), scan(t_29), scan(t_30), scan(t_31), scan(t_32), scan(t_33), scan(t_34), scan(t_35), scan(t_36), 
+scan(t_37), scan(t_38), scan(t_39), scan(t_40)
+
+// Trim excess rows in the matrix
+if matrix.rows(matrix) > i_scr_tbl_disp_rows
+    while matrix.rows(matrix) > i_scr_tbl_disp_rows
+        matrix.remove_row(matrix, matrix.rows(matrix) - 1)
+
+// Plot Table
+// Create table with specified properties
+var table scr_tbl = table.new(position = i_scr_tbl_position, columns = 5, rows = 102, border_width = 1, force_overlay = true)
+
+// Function to populate cells in the table
+scr_cell_title(col, row, txt) =>
+    table.cell(scr_tbl, col, row, text = txt, text_color = i_neu_color, text_halign = text.align_center, bgcolor = i_neu_dark_color, text_size = i_scr_tbl_text_size)
+
+scr_cell(col, row, txt, _text_color, _bgcolor) =>
+    table.cell(scr_tbl, col, row, text = txt, text_color = _text_color, text_halign = text.align_left, bgcolor = _bgcolor, text_size = i_scr_tbl_text_size)
+
+// Check if it's the last bar
+if barstate.islast and i_scr_show_table
+    // Clear existing data in the table
+    table.clear(scr_tbl, 0, 0, 2, 101)
+
+    scr_cell_title(0, 0, 'Fill to ' + str.tostring(i_fib_val) + '%')
+    table.merge_cells(table_id = scr_tbl, start_column = 0, start_row = 0, end_column = 4, end_row = 0)
+    scr_cell_title(0, 1, 'Symbol')
+    scr_cell_title(1, 1, 'Time')
+    scr_cell_title(2, 1, 'Price')
+    scr_cell_title(3, 1, '%Chg')
+    scr_cell_title(4, 1, 'V %Chg')
+
+    j = 4
+    // Populate table with matrix data
+    if matrix.rows(matrix) > 0
+        for i = 0 to matrix.rows(matrix) - 1 by 1
+        // Determine color based on the signal
+
+            _textcolor = matrix.get(matrix, i, 5) == '1' ? i_pos_color : matrix.get(matrix, i, 5) == '-1' ? i_neg_color : i_neu_color
+
+            _bg_color = matrix.get(matrix, i, 5) == '1' ? i_neu_dark_color : matrix.get(matrix, i, 5) == '-1' ? i_neu_dark_color : i_neu_color
+
+            // Populate cells in the table
+            scr_cell(0, j, matrix.get(matrix, i, 0), _textcolor, _bg_color)
+            scr_cell(1, j, matrix.get(matrix, i, 1), _textcolor, _bg_color)
+            scr_cell(2, j, matrix.get(matrix, i, 2), _textcolor, _bg_color)
+            scr_cell(3, j, matrix.get(matrix, i, 3), _textcolor, _bg_color)
+            scr_cell(4, j, matrix.get(matrix, i, 4), _textcolor, _bg_color)
+
+            j := j + 1
+
+//_____________________________ Screener End
+
+//_____________________________ Code End
+
+// Readme First:
+
+// ICT Liquidity Void Fill Scanner
+
+// Logic
+//   - This identifies a momentum candle, an 80% body candle with high volatility, or a displacement.
+//   - A signal is generated when the price retraces to the candle body, void, or FVG, based on the Fibonacci value.
+
+// Notes
+//   - Use a higher timeframe, like 4 hour or 1 hour, for stock selection.
+//   - The Scanner will generate wrong signals also.
