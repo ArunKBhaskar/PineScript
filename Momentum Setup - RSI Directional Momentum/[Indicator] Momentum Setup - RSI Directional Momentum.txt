@@ -1,0 +1,574 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Arun_K_Bhaskar
+
+//@version=6
+indicator(title = 'Momentum Setup - RSI Directional Momentum Indicator', shorttitle = 'RSIDM', behind_chart = false)
+
+//___________________________ Menu Start
+
+string g_scn_tb = '█████████████████ Scanner █████████████████'
+
+string tt_ch = 
+ "Continuous Break:" + 
+ "\n• Buy: RSI crosses above 60, dips below, then breaks the previous high while staying above 60." + 
+ "\n• Sell: RSI crosses below 40, rises above, then breaks the previous low while staying below 40." +
+
+ "\n\n Continuous Retracement:" + 
+ "\n• After a Continuous Break, a Fibonacci level is set." +
+ "\n• Buy: Price retraces to this level and bounces." +
+ "\n• Sell: Price retraces to this level and drops." +
+
+ "\n\n Flip Break:" + 
+ "\n• If a Continuous Break fails, the trade flips (Long → Short, Short → Long)." + 
+
+ "\n\n Flip Retracement:" + 
+ "\n• If a Continuous Retracement fails, the trade flips (Long → Short, Short → Long)." + 
+
+ "\n\n Divergence:" + 
+ "\n• Buy: Price makes a lower low, RSI makes a higher low." + 
+ "\n• Sell: Price makes a higher high, RSI makes a lower high." + 
+
+ "\n\n Hidden Divergence (Trend continuation):" + 
+ "\n• Buy: Price makes a higher low, RSI makes a lower low." + 
+ "\n• Sell: Price makes a lower high, RSI makes a higher high."
+
+string i_scn_choose = input.string(
+ defval = 'Continuous Break', 
+ title = 'Scanning Method', 
+ options = ['Continuous Break', 'Continuous Retracement', 'Flip Break', 'Flip Retracement', 'Divergence', 'Hidden Divergence'], tooltip = tt_ch, group = g_scn_tb)
+
+bool i_scn_show_long = input.bool(defval = true, title = 'Long Signals', inline = 'tb_2', group = g_scn_tb)
+bool i_scn_show_short = input.bool(defval = true, title = 'Short Signals', inline = 'tb_2', group = g_scn_tb)
+
+string g_rsi = '██████████ Relative Strength Index (RSI) ██████████'
+string tt_ret_fib = 
+ "• 0: Bottom of bullish & top of bearish breaking candle." + 
+ "\n• 1: Top of bullish & bottom of bearish breaking candle." + 
+ "\n• 0.5: 50% of the breaking candle."
+int i_rsi_len = input.int(defval = 14, title = 'RSI Length', minval = 1, group = g_rsi)
+float i_rsi_src = input.source(defval = close, title = 'RSI Source', group = g_rsi)
+int i_rsi_ma_len = input.int(defval = 14, title = 'SMA Length', minval = 1, group = g_rsi)
+float i_rsi_fib_val = input.float(defval = 0.5, title = 'Fib Value', step = 0.1, tooltip = tt_ret_fib, group = g_rsi)
+bool i_rsi_show_bull = input.bool(defval = true, title = 'Display Bullish Divergence', group = g_rsi)
+bool i_rsi_show_bear = input.bool(defval = true, title = 'Display Bearish Divergence', group = g_rsi)
+bool i_rsi_show_hbull = input.bool(defval = true, title = 'Display Hidden Bullish Divergence', group = g_rsi)
+bool i_rsi_show_hbear = input.bool(defval = true, title = 'Display Hidden Bearish Divergence', group = g_rsi)
+int i_rsi_p_right = input.int(defval = 5, title = 'Pivot Lookback Right', group = g_rsi)
+int i_rsi_p_left = input.int(defval = 5, title = 'Pivot Lookback Left', group = g_rsi)
+int i_rsi_range_max = input.int(defval = 60, title = 'Max of Lookback Range', group = g_rsi)
+int i_rsi_range_min = input.int(defval = 5, title = 'Min of Lookback Range', group = g_rsi)
+
+string g_af = '██████████████ Additional Fiters ██████████████'
+
+string tt_pchg = 
+ "• Percentage change of the day." 
+string tt_vpchg = 
+ "• 0% means today's volume must exceed the previous day's." + 
+ "\n• 300%+ often signals a major breakout (today or next day)."
+string tt_atr = "• Filters out longer or more volatile signal candles."
+string tt_atr_mul = "• Higher values filter longer or more volatile candles."
+string tt_bf = "• 80 means the body covers 80%+ of the candle."
+string tt_bs = "• 2 means the candle is twice the size of the previous one."
+string tt_vol = "• Filter candles with volume > SMA of volume."
+string tt_rv = "• Filter candles with volume > Relative Volume."
+string tt_tf = "• Filter signals within a given time."
+string tt_df = "• Filter signals on specified dates (for Break Candles (2) only)."
+
+bool i_pchg_filter = input.bool(defval = false, title = 'Apply % Change Filter', tooltip = tt_pchg, group = g_af)
+float i_pchg_above_below = input.float(defval = 2, title = '% Change Above/Below +/-', minval = 0, group = g_af)
+
+bool i_vol_filter = input.bool(defval = false, title = 'Apply Volume Filter', tooltip = tt_vpchg, group = g_af)
+int i_vol_above = input.int(defval = 500000, title = 'Volume Above', minval = 0, group = g_af)
+
+bool i_vol_pchg_filter = input.bool(defval = false, title = 'Apply Volume % Change Filter', tooltip = tt_vpchg, group = g_af)
+float i_vol_pchg_above = input.float(defval = 0, title = 'Volume % Change Above', minval = 0, group = g_af)
+
+bool i_atr_filter = input.bool(defval = false, title = 'Apply ATR Filter', tooltip = tt_atr, group = g_af)
+int i_atr_length = input.int(defval = 14, minval = 1, title = 'ATR Length', group = g_af)
+float i_atr_multi = input.float(defval = 1, title = 'ATR Multiplier', minval = 1, group = g_af)
+
+bool i_body_filter = input.bool(defval = false, title = 'Apply Body % Filter', tooltip = tt_bf, group = g_af)
+float i_body_percent = input.float(defval = 70, title = 'Body % Above', minval = 0, maxval = 100, group = g_af) / 100
+
+bool i_body_size_filter = input.bool(defval = false, title = 'Apply Body Size Filter', tooltip = tt_bs, group = g_af)
+int i_body_size_multi = input.int(defval = 2, title = 'Body Size Multiplier (x)', minval = 0, group = g_af)
+
+bool i_volume_filter = input.bool(defval = false, title = 'Apply Volume Filter', tooltip = tt_vol, group = g_af)
+int i_vol_sma_length = input.int(defval = 20, minval = 1, title = 'Volume SMA Length', group = g_af)
+
+bool i_rel_vol_filter = input.bool(defval = false, title = 'Apply Relative Volume Filter', tooltip = tt_rv, group = g_af)
+int i_rel_vol_avg_vol_len = input.int(defval = 90, title = 'Relative Volume Length', minval = 2, group = g_af)
+float i_rel_vol_avg_vol_multi = input.float(defval = 5, title = 'Rel Vol SMA Multiplier', minval = 0, group = g_af)
+
+bool i_time_filter = input.bool(defval = false, title = 'Apply Time Filter', tooltip = tt_tf, group = g_af)
+int i_hour_1 = input.int(defval = 9, minval = 0, title = 'Time From', inline = 't_1', group = g_af)
+int i_minute_1 = input.int(defval = 15, minval = 0, title = ':', inline = 't_1', group = g_af)
+int i_hour_2 = input.int(defval = 10, minval = 0, title = 'Time To ', inline = 't_2', group = g_af)
+int i_minute_2 = input.int(defval = 15, minval = 0, title = ':', inline = 't_2', group = g_af)
+
+bool i_date_filter = input.bool(defval = false, title = 'Apply Date Filter', tooltip = tt_df, group = g_af)
+int i_day = input.int(defval = 25, minval = 1, maxval = 31, title = 'Day', group = g_af)
+int i_month = input.int(defval = 10, minval = 1, maxval = 12, title = 'Month', group = g_af)
+int i_year = input.int(defval = 2024, minval = 0, title = 'Year', group = g_af)
+
+string g_cum = '█████████████ Performance Table █████████████'
+bool i_cum_tbl_disp = input.bool(defval = true, title = 'Display', group = g_cum)
+string i_cum_tbl_pos = input.string(defval = position.bottom_right, title = 'Position', options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center, position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = g_cum)
+string i_cum_tbl_size = input.string(defval = size.normal, title = 'Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = g_cum)
+
+//string g_ch = '█████████████████ Colors █████████████████'
+color i_pos_color = #089981 //input.color(defval = #089981, title = 'Positive', group = g_ch)
+color i_pos_light_color = #70CCBD //input.color(defval = #70CCBD, title = 'Positive Light', group = g_ch)
+color i_neg_light_color = #FAA1A4 //input.color(defval = #FAA1A4, title = 'Negative Light', group = g_ch)
+color i_neg_color = #F23645 //input.color(defval = #F23645, title = 'Negative', group = g_ch)
+color i_indicator_color = #2962FF //input.color(defval = #2962FF, title = 'Indicator', group = g_ch)
+color i_signal_color = #FF6D00 //input.color(defval = #FF6D00, title = 'Signal', group = g_ch)
+color i_neu_color = #D1D4DC //input.color(defval = #D1D4DC, title = 'Neutral Light', group = g_ch)
+color i_neu_dark_color = #0F0F0F //input.color(defval = #0F0F0F, title = 'Neutral', group = g_ch)
+
+//___________________________ Menu End
+
+//___________________________ Performance Start
+
+is_new_day = ta.change(time('D')) != 0
+
+// Cumulative Percentage Change
+var float cum_pchg = na
+day_pchg = na(close[1]) ? 0 : (close - close[1]) / close[1] * 100
+cum_pchg := is_new_day ? day_pchg : na(cum_pchg) ? day_pchg : cum_pchg + day_pchg
+
+// Cumulative Volume and Volume Percentage Change
+var float curr_cum_vol = na
+var float prev_cum_vol = na
+if is_new_day
+    prev_cum_vol := curr_cum_vol
+    curr_cum_vol := volume
+    curr_cum_vol
+else
+    curr_cum_vol := na(curr_cum_vol) ? volume : curr_cum_vol + volume
+    curr_cum_vol
+prev_vol_safe = nz(prev_cum_vol, curr_cum_vol)
+cum_vol_pchg = (curr_cum_vol - prev_vol_safe) / prev_vol_safe * 100
+
+var table tbl_cum = table.new(position=i_cum_tbl_pos, columns=2, rows=4, border_width=1, force_overlay=true)
+
+cell_perform(col, row, txt, txt_color, aligh) =>
+    table.cell(tbl_cum, col, row, txt, text_color=txt_color, text_halign=aligh, bgcolor=i_neu_dark_color, text_size=i_cum_tbl_size)
+
+if barstate.islast and i_cum_tbl_disp
+    pchg_col = cum_pchg > 0 ? i_pos_color : i_neg_color
+    vol_pchg_col = cum_vol_pchg > 0 ? i_pos_color : i_neg_color
+    prev_vol_pchg_col = prev_vol_safe < curr_cum_vol ? i_neg_color : i_pos_color
+    
+    cell_perform(0, 0, '%Chg', chart.fg_color, text.align_left)
+    cell_perform(1, 0, str.tostring(cum_pchg, '#.##') + ' %', pchg_col, text.align_right)
+    cell_perform(0, 1, 'Vol %Chg', chart.fg_color, text.align_left)
+    cell_perform(1, 1, str.tostring(cum_vol_pchg, '#.##') + ' %', vol_pchg_col, text.align_right)
+    cell_perform(0, 2, 'Vol', chart.fg_color, text.align_left)
+    cell_perform(1, 2, str.tostring(curr_cum_vol / 100000, '#.##') + ' L', vol_pchg_col, text.align_right)
+    cell_perform(0, 3, 'PD Vol', chart.fg_color, text.align_left)
+    cell_perform(1, 3, str.tostring(prev_vol_safe / 100000, '#.##') + ' L', prev_vol_pchg_col, text.align_right)
+
+//___________________________ Performance End
+
+//___________________________ Additional Filters Start
+
+// Pre-calculate common values
+candle_range = high - low
+body_size = math.abs(close - open)
+
+// Combined filter conditions
+pchg_above_filter = not i_pchg_filter or cum_pchg > i_pchg_above_below
+pchg_below_filter = not i_pchg_filter or cum_pchg < -i_pchg_above_below
+vol_filter = not i_vol_filter or curr_cum_vol >= i_vol_above
+vol_pchg_filter = not i_vol_pchg_filter or cum_vol_pchg >= i_vol_pchg_above
+
+// ATR Filter
+atr_filter = not i_atr_filter or candle_range > ta.atr(i_atr_length) * i_atr_multi
+
+// Body Filters
+body_filter = not i_body_filter or candle_range > 0 and body_size / candle_range >= i_body_percent
+body_size_filter = not i_body_size_filter or candle_range > 0 and body_size / candle_range >= i_body_percent and candle_range >= (high[1] - low[1]) * i_body_size_multi
+
+// Volume Filters
+volume_filter = not i_volume_filter or volume > ta.sma(volume, i_vol_sma_length)
+
+// Relative Volume Filter
+var bool rel_vol_filter = true
+if i_rel_vol_filter
+    average_volume = ta.sma(volume, i_rel_vol_avg_vol_len)
+    relative_volume = volume / nz(average_volume[1], volume)
+    rel_vol_sma_multiplier = ta.sma(relative_volume, i_rel_vol_avg_vol_len) * i_rel_vol_avg_vol_multi
+    rel_vol_filter := relative_volume > rel_vol_sma_multiplier
+
+// Time Filter
+time_filter = 
+ not i_time_filter or 
+ (hour > i_hour_1 or hour == i_hour_1 and minute >= i_minute_1) and 
+ (hour < i_hour_2 or hour == i_hour_2 and minute < i_minute_2)
+
+// Date Filter
+date_filter = not i_date_filter or year == i_year and month == i_month and dayofmonth == i_day
+
+//___________________________ Additional Filters End
+
+//___________________________ RSI Start
+
+// Acknowledgement & Reference
+// Trader: 'TradingView'
+// Indicator Title: Built-in Relative Strength Index, RSI Divergence Indicator
+
+color no_color = #00000000
+
+// RSI Calculation
+float rsi = ta.rsi(i_rsi_src, i_rsi_len)
+float rsi_ma = ta.sma(rsi, i_rsi_ma_len)
+
+// RSI Plot
+plot(series = rsi, title = 'RSI', color = i_indicator_color, linewidth = 2)
+plot(series = rsi_ma, title = 'RSI Moving Average', color = i_signal_color)
+
+// RSI Bands
+float overbought = 70
+float breakout = 60
+float middle = 50
+float breakdown = 40
+float oversold = 30
+hline(price = overbought, title = 'Band Overbought', color = color.new(i_neg_color, 50), linestyle = hline.style_dotted)
+band_ub = hline(price = breakout, title = 'Band Bullish', color = color.new(i_neu_color, 50), linestyle = hline.style_dotted)
+hline(price = middle, title = 'Band Middle', color = color.new(i_neu_color, 50), linestyle = hline.style_dotted)
+band_lb = hline(price = breakdown, title = 'Band Bearish', color = color.new(i_neu_color, 50), linestyle = hline.style_dotted)
+hline(price = oversold, title = 'Band Oversold', color = color.new(i_pos_color, 50), linestyle = hline.style_dotted)
+fill(hline1 = band_ub, hline2 = band_lb, color = color.new(i_neu_color, 95), title = 'Fill Middle')
+
+// Divergence Calculation
+_inRange(cond) =>
+    bars = ta.barssince(cond)
+    i_rsi_range_min <= bars and bars <= i_rsi_range_max
+
+bool plFound = not na(ta.pivotlow(rsi, i_rsi_p_left, i_rsi_p_right))
+bool phFound = not na(ta.pivothigh(rsi, i_rsi_p_left, i_rsi_p_right))
+float rsiLBR = rsi[i_rsi_p_right]
+float lowLBR = low[i_rsi_p_right]
+float highLBR = high[i_rsi_p_right]
+
+// Bull Divergence
+rsiHL = rsiLBR > ta.valuewhen(plFound, rsiLBR, 1) and _inRange(plFound[1])
+priceLL = lowLBR < ta.valuewhen(plFound, lowLBR, 1)
+bullDiv = i_scn_choose == 'Divergence' and i_rsi_show_bull and priceLL and rsiHL and plFound
+
+// Bear Divergence
+rsiLH = rsiLBR < ta.valuewhen(phFound, rsiLBR, 1) and _inRange(phFound[1])
+priceHH = highLBR > ta.valuewhen(phFound, highLBR, 1)
+bearDiv = i_scn_choose == 'Divergence' and i_rsi_show_bear and priceHH and rsiLH and phFound
+
+// Hidden Bullish
+rsiLL = rsiLBR < ta.valuewhen(plFound, rsiLBR, 1) and _inRange(plFound[1])
+priceHL = lowLBR > ta.valuewhen(plFound, lowLBR, 1)
+hiddenBullDiv = i_scn_choose == 'Hidden Divergence' and i_rsi_show_hbull and priceHL and rsiLL and plFound
+
+// Hidden Bearish
+rsiHH = rsiLBR > ta.valuewhen(phFound, rsiLBR, 1) and _inRange(phFound[1])
+priceLH = highLBR < ta.valuewhen(phFound, highLBR, 1)
+hiddenBearDiv = i_scn_choose == 'Hidden Divergence' and i_rsi_show_hbear and priceLH and rsiHH and phFound
+
+// Divergence Plots
+// Underlay
+plot(i_scn_choose == 'Divergence' and plFound ? rsiLBR : na, offset = -i_rsi_p_right, title = 'Line Bull Div', color = bullDiv ? i_pos_color : no_color, linewidth = 2, display = display.pane, editable = i_rsi_show_bull)
+//plotshape(bullDiv ? rsiLBR : na, offset=-i_rsi_p_right, title="Label Bull Div", text=" Bull ", style=shape.labelup, location=location.absolute, color=i_pos_color, textcolor=i_neu_color, editable=i_rsi_show_bull)
+plot(i_scn_choose == 'Divergence' and phFound ? rsiLBR : na, offset = -i_rsi_p_right, title = 'Line Bear Div', color = bearDiv ? i_neg_color : no_color, linewidth = 2, display = display.pane, editable = i_rsi_show_bear)
+//plotshape(bearDiv ? rsiLBR : na, offset=-i_rsi_p_right, title="Label Bear Div", text=" Bear ", style=shape.labeldown, location=location.absolute, color=i_neg_color, textcolor=i_neu_color, editable=i_rsi_show_bear)
+// Overlay
+plot(i_scn_choose == 'Divergence' and plFound ? lowLBR : na, offset = -i_rsi_p_right, title = 'Line Bull Div Over', color = bullDiv ? i_pos_color : no_color, linewidth = 2, display = display.pane, force_overlay = true)
+//plotshape(bullDiv ? lowLBR : na, offset=-i_rsi_p_right, title="Label Bull Div Over", text=" Bull ", style=shape.labelup, location=location.absolute, color=i_pos_color, textcolor=i_neu_color, force_overlay=true)
+plot(i_scn_choose == 'Divergence' and phFound ? highLBR : na, offset = -i_rsi_p_right, title = 'Line Bear Div Over', color = bearDiv ? i_neg_color : no_color, linewidth = 2, display = display.pane, force_overlay = true)
+//plotshape(bearDiv ? highLBR : na, offset=-i_rsi_p_right, title="Label Bear Div Over", text=" Bear ", style=shape.labeldown, location=location.absolute, color=i_neg_color, textcolor=i_neu_color, force_overlay=true)
+
+// Underlay
+plot(i_scn_choose == 'Hidden Divergence' and plFound ? rsiLBR : na, offset = -i_rsi_p_right, title = 'Line Hidden Bull Div', color = hiddenBullDiv ? i_pos_color : no_color, display = display.pane, editable = i_rsi_show_hbull)
+//plotshape(hiddenBullDiv ? rsiLBR : na, offset=-i_rsi_p_right, title="Label Hidden Bull Div", text=" H Bull ", style=shape.labelup, location=location.absolute, color=i_pos_color, textcolor=i_neu_color, editable=i_rsi_show_hbull)
+plot(i_scn_choose == 'Hidden Divergence' and phFound ? rsiLBR : na, offset = -i_rsi_p_right, title = 'Line Hidden Bear Div', color = hiddenBearDiv ? i_neg_color : no_color, display = display.pane, editable = i_rsi_show_hbear)
+//plotshape(hiddenBearDiv ? rsiLBR : na, offset=-i_rsi_p_right, title="Label Hidden Bear Div", text=" H Bear ", style=shape.labeldown, location=location.absolute, color=i_neg_color, textcolor=i_neu_color, editable=i_rsi_show_hbear)
+// Overlay
+plot(i_scn_choose == 'Hidden Divergence' and plFound ? lowLBR : na, offset = -i_rsi_p_right, title = 'Line Hidden Bull Div Over', color = hiddenBullDiv ? i_pos_color : no_color, display = display.pane, force_overlay = true)
+//plotshape(hiddenBullDiv ? lowLBR : na, offset=-i_rsi_p_right, title="Label Hidden Bull Div Over", text=" H Bull ", style=shape.labelup, location=location.absolute, color=i_pos_color, textcolor=i_neu_color, force_overlay=true)
+plot(i_scn_choose == 'Hidden Divergence' and phFound ? highLBR : na, offset = -i_rsi_p_right, title = 'Line Hidden Bear Div Over', color = hiddenBearDiv ? i_neg_color : no_color, display = display.pane, force_overlay = true)
+//plotshape(hiddenBearDiv ? highLBR : na, offset=-i_rsi_p_right, title="Label Hidden Bear Div Over", text=" H Bear ", style=shape.labeldown, location=location.absolute, color=i_neg_color, textcolor=i_neu_color, force_overlay=true)
+
+//___________________________ RSI End
+
+//___________________________ Signals Start
+
+// Acknowledgement & Reference
+// Trader: 'vitvlkv'
+// Indicator Title: 'HOWTO: cond1 + cond2 = alert once'
+// Indicator Link: 'https://www.tradingview.com/script/UHkEyCV3-HOWTO-cond1-cond2-alert-once/'
+
+// State Machine for Continuous Signals
+var int state = 0
+state := nz(state[1]) == 3 or nz(state[1]) == 6 ? 0 : nz(state[1])
+
+// Short Conditions
+bool short_1 = 
+ ta.crossunder(rsi, breakdown) and 
+ rsi < rsi_ma and 
+ (state == 0 or state >= 4 and state <= 5)
+
+var float short_1_low = na
+var float short_1_rsi = na
+var int short_1_bar = na
+if short_1
+    short_1_low := low
+    short_1_rsi := rsi
+    short_1_bar := bar_index
+
+bool short_2 = rsi > breakdown
+
+bool short_3 = 
+ not na(short_1_low) and 
+ rsi < breakdown and 
+ rsi < rsi_ma and 
+ close < short_1_low and 
+ //ta.crossunder(close, short_1_low) and 
+ pchg_above_filter and 
+ pchg_below_filter and 
+ vol_filter and 
+ vol_pchg_filter and 
+ atr_filter and 
+ body_filter and 
+ body_size_filter and 
+ volume_filter and 
+ rel_vol_filter and 
+ time_filter and 
+ date_filter and 
+ barstate.isconfirmed 
+
+// Long Conditions
+long_1 = 
+ ta.crossover(rsi, breakout) and 
+ rsi > rsi_ma and 
+ (state == 0 or state >= 1 and state <= 2)
+
+var float long_1_high = na
+var float long_1_rsi = na
+var int long_1_bar = na
+if long_1
+    long_1_high := high
+    long_1_rsi := rsi
+    long_1_bar := bar_index
+
+long_2 = rsi < breakout
+
+long_3 = 
+ not na(long_1_high) and 
+ rsi > breakout and 
+ rsi > rsi_ma and 
+ close > long_1_high and 
+ //ta.crossover(close, long_1_high) and 
+ pchg_above_filter and 
+ pchg_below_filter and 
+ vol_filter and 
+ vol_pchg_filter and 
+ atr_filter and 
+ body_filter and 
+ body_size_filter and 
+ volume_filter and 
+ rel_vol_filter and 
+ time_filter and 
+ date_filter and 
+ barstate.isconfirmed
+
+// State Transitions
+if short_1
+    state := 1
+else if short_2 and state == 1
+    state := 2
+else if short_3 and state == 2
+    state := 3
+else if long_1
+    state := 4
+else if long_2 and state == 4
+    state := 5
+else if long_3 and state == 5
+    state := 6
+
+// Continuous Signals
+short_cont_break = state == 3
+long_cont_break = state == 6
+
+//___________________________ Continuous Retracement Signals
+
+// Fibonacci Levels for Continuous Signals
+var float short_signal_high = na
+var float short_signal_low = na
+var int short_signal_bar = na
+var float long_signal_high = na
+var float long_signal_low = na
+var int long_signal_bar = na
+
+if short_cont_break
+    short_signal_high := high
+    short_signal_low := low
+    short_signal_bar := bar_index
+
+if long_cont_break
+    long_signal_high := high
+    long_signal_low := low
+    long_signal_bar := bar_index
+
+short_fib_val = 
+ not na(short_signal_high) and not na(short_signal_low) ? 
+ short_signal_high - (short_signal_high - short_signal_low) * i_rsi_fib_val : na
+
+long_fib_val = 
+ not na(long_signal_high) and not na(long_signal_low) ? 
+ long_signal_low + (long_signal_high - long_signal_low) * i_rsi_fib_val : na
+
+// Continuous Retracement Signals
+var bool short_active = false
+var bool long_active = false
+var bool short_cont_ret_done = false
+var bool long_cont_ret_done = false
+var int short_ret_bar = na
+var float short_ret_high = na
+var int long_ret_bar = na
+var float long_ret_low = na
+
+if short_cont_break
+    short_active := true
+    long_active := false
+    short_cont_ret_done := false
+    long_cont_ret_done := false
+
+if long_cont_break
+    long_active := true
+    short_active := false
+    long_cont_ret_done := false
+    short_cont_ret_done := false
+ 
+short_cont_ret = 
+ short_active and 
+ not short_cont_ret_done and 
+ not na(short_fib_val) and 
+ ta.crossover(high, short_fib_val) and 
+ high[1] < short_fib_val
+
+long_cont_ret = 
+ long_active and 
+ not long_cont_ret_done and 
+ not na(long_fib_val) and 
+ ta.crossunder(low, long_fib_val) and 
+ low[1] > long_fib_val
+
+if short_cont_ret
+    short_cont_ret_done := true
+    short_ret_bar := bar_index
+    short_ret_high := high
+if long_cont_ret
+    long_cont_ret_done := true
+    long_ret_bar := bar_index
+    long_ret_low := low
+ 
+//___________________________ Flip Signals
+
+// Acknowledgement & Reference
+// Trader: 'vitvlkv'
+// Indicator Title: 'HOWTO: Skip consecutive signals'
+// Indicator Link: 'https://www.tradingview.com/script/2M9I2sgP-HOWTO-Skip-consecutive-signals/'
+
+exrem(bool cond1, bool cond2) =>
+    var int signal = 0
+    signal := cond1 ? 1 : cond2 ? -1 : signal[1]
+    bool entry = signal != signal[1]
+    [entry and signal == 1, entry and signal == -1]
+
+[long_flip_break, short_flip_break] = exrem(long_cont_break, short_cont_break)
+[long_flip_ret, short_flip_ret] = exrem(long_cont_ret, short_cont_ret)
+
+//___________________________ Plot Signal
+
+choice_cont_ln = i_scn_choose == 'Continuous Break'
+choice_cont_ret_ln = i_scn_choose == 'Continuous Retracement'
+
+choice_cont = i_scn_choose == 'Continuous Break' or i_scn_choose == 'Continuous Retracement'
+choice_cont_ret = i_scn_choose == 'Continuous Retracement'
+choice_flip = i_scn_choose == 'Flip Break'
+choice_flip_ret = i_scn_choose == 'Flip Retracement'
+
+// Line Instances
+f_drawLine(id, x1, y1, x2, y2, col) => 
+    line.new(x1, y1, x2, y2, color=col, style=line.style_dotted, force_overlay=true)
+
+var line short_line_1 = na
+var line short_line_2 = na
+var line long_line_1 = na
+var line long_line_2 = na
+
+if short_cont_break and choice_cont_ln and not na(short_1_low) and not na(short_signal_low) and not na(short_1_bar) and not na(short_signal_bar)
+    short_line_1 := f_drawLine(short_line_1, short_1_bar, short_1_low, short_signal_bar, short_1_low, i_neg_color)
+
+if short_cont_ret and choice_cont_ret_ln and not na(short_fib_val) and not na(short_ret_high) and not na(short_signal_bar) and not na(short_ret_bar)
+    short_line_2 := f_drawLine(short_line_2, short_signal_bar, short_fib_val, short_ret_bar, short_fib_val, i_neg_color)
+
+if long_cont_break and choice_cont_ln and not na(long_1_high) and not na(long_signal_high) and not na(long_1_bar) and not na(long_signal_bar)
+    long_line_1 := f_drawLine(long_line_1, long_1_bar, long_1_high, long_signal_bar, long_1_high, i_pos_color)
+
+if long_cont_ret and choice_cont_ret_ln and not na(long_fib_val) and not na(long_ret_low) and not na(long_signal_bar) and not na(long_ret_bar)
+    long_line_2 := f_drawLine(long_line_2, long_signal_bar, long_fib_val, long_ret_bar, long_fib_val, i_pos_color)
+
+// Continuous 1st Alert
+plotshape(i_scn_show_short and choice_cont ? short_1 : false, title = 'Cont 1st Short', style = shape.circle, location = location.abovebar, color = i_neg_light_color, size = size.auto, force_overlay = true)
+plotshape(i_scn_show_long and choice_cont ? long_1 : false, title = 'Cont 1st Long', style = shape.circle, location = location.belowbar, color = i_pos_light_color, size = size.auto, force_overlay = true)
+barcolor(i_scn_show_short and choice_cont and short_1 ? i_neg_light_color : i_scn_show_long and choice_cont and long_1 ? i_pos_light_color : na, title = 'Cont 1st Candle')
+//bgcolor(i_scn_show_short and choice_cont and short_1 ? color.new(i_neg_light_color, 90) : i_scn_show_long and choice_cont and long_1 ? color.new(i_pos_light_color, 90) : na, title="Cont 1st Bgcolor")
+
+// Continuous 2nd Breakout
+plotshape(i_scn_show_short and choice_cont ? short_cont_break : false, title = 'Cont 2nd Short', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, text = '2', textcolor = i_neg_light_color, size = size.auto, force_overlay = true)
+plotshape(i_scn_show_long and choice_cont ? long_cont_break : false, title = 'Cont 2nd Long', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, text = '2', textcolor = i_pos_light_color, size = size.auto, force_overlay = true)
+barcolor(i_scn_show_short and choice_cont and short_cont_break ? i_neg_light_color : i_scn_show_long and choice_cont and long_cont_break ? i_pos_light_color : na, title = 'Cont 2nd Candle')
+bgcolor(i_scn_show_short and choice_cont and short_cont_break ? color.new(i_neg_light_color, 90) : i_scn_show_long and choice_cont and long_cont_break ? color.new(i_pos_light_color, 90) : na, title = 'Cont 2nd Bgcolor')
+
+// Continuous 3rd Retracement
+plotshape(i_scn_show_short and choice_cont_ret ? short_cont_ret : false, title = 'Cont 3rd Short', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, text = '3', textcolor = i_neg_light_color, size = size.auto, force_overlay = true)
+plotshape(i_scn_show_long and choice_cont_ret ? long_cont_ret : false, title = 'Cont 3rd Long', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, text = '3', textcolor = i_pos_light_color, size = size.auto, force_overlay = true)
+barcolor(i_scn_show_short and choice_cont_ret and short_cont_ret ? i_neg_light_color : i_scn_show_long and choice_cont_ret and long_cont_ret ? i_pos_light_color : na, title = 'Cont 3rd Candle')
+bgcolor(i_scn_show_short and choice_cont_ret and short_cont_ret ? color.new(i_neg_light_color, 90) : i_scn_show_long and choice_cont_ret and long_cont_ret ? color.new(i_pos_light_color, 90) : na, title = 'Cont 3rd Bgcolor')
+
+// Flip 2nd Breakout
+plotshape(i_scn_show_short and choice_flip ? short_flip_break : false, title = 'Flip 2nd Short', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, text = '2', textcolor = i_neg_light_color, size = size.auto, force_overlay = true)
+plotshape(i_scn_show_long and choice_flip ? long_flip_break : false, title = 'Flip 2nd Long', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, text = '2', textcolor = i_pos_light_color, size = size.auto, force_overlay = true)
+barcolor(i_scn_show_short and choice_flip and short_flip_break ? i_neg_light_color : i_scn_show_long and choice_flip and long_flip_break ? i_pos_light_color : na, title = 'Flip 2nd Candle')
+bgcolor(i_scn_show_short and choice_flip and short_flip_break ? color.new(i_neg_light_color, 90) : i_scn_show_long and choice_flip and long_flip_break ? color.new(i_pos_light_color, 90) : na, title = 'Flip 2nd Bgcolor')
+
+// Flip 3rd Retracement
+plotshape(i_scn_show_short and choice_flip_ret ? short_flip_ret : false, title = 'Flip 3rd Short', style = shape.triangledown, location = location.abovebar, color = i_neg_light_color, text = '3', textcolor = i_neg_light_color, size = size.auto, force_overlay = true)
+plotshape(i_scn_show_long and choice_flip_ret ? long_flip_ret : false, title = 'Flip 3rd Long', style = shape.triangleup, location = location.belowbar, color = i_pos_light_color, text = '3', textcolor = i_pos_light_color, size = size.auto, force_overlay = true)
+barcolor(i_scn_show_short and choice_flip_ret and short_flip_ret ? i_neg_light_color : i_scn_show_long and choice_flip_ret and long_flip_ret ? i_pos_light_color : na, title = 'Flip 3rd Candle')
+bgcolor(i_scn_show_short and choice_flip_ret and short_flip_ret ? color.new(i_neg_light_color, 90) : i_scn_show_long and choice_flip_ret and long_flip_ret ? color.new(i_pos_light_color, 90) : na, title = 'Flip 3rd Bgcolor')
+
+//___________________________ Signals End
+
+//___________________________ Code End
+
+// Read Me First
+// 
+// Indicator Title: "Momentum Setup: RSI Directional Momentum Scanner"
+// 
+// Overview
+//  - Upgraded From: "Momentum Setup: RSI Confirmed Direction Scanner".
+//  - Improvements: Optimized for speed, refined signals, better performance.
+// 
+// Features
+// - Scanning Methods:
+//   - Continuous Break: RSI breakout signals.
+//   - Continuous Retracement: Fibonacci retracement after break.
+//   - Flip Break: Failed break flips trade direction.
+//   - Flip Retracement: Failed retracement flips trade.
+//   - Divergence: Price vs. RSI divergence.
+//   - Hidden Divergence: Trend continuation signals.
+//  
+// Note: Read tooltips for more clarity.
+// 
+// Questions?: Message the author on TradingView: https://www.tradingview.com/u/Arun_K_Bhaskar/
+// 
+// More Indicators: Free TradingView indicators and source code on GitHub: https://github.com/ArunKBhaskar/PineScript
